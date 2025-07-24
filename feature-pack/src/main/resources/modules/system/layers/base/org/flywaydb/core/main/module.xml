@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module name="org.flywaydb.core" xmlns="urn:jboss:module:1.9">
+    <resources>
+        <artifact name="${org.flywaydb:flyway-core}"/>
+    </resources>
+    <dependencies>
+        <module name="java.desktop"/>
+        <module name="java.instrument"/>
+        <module name="java.logging"/>
+        <module name="java.management"/>
+        <module name="java.naming"/>
+        <module name="java.sql"/>
+        <module name="java.xml"/>
+    </dependencies>
+</module>

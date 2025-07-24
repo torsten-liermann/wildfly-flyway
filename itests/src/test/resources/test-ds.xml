@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<datasources xmlns="http://www.jboss.org/ironjacamar/schema"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.jboss.org/ironjacamar/schema
+                                 http://docs.jboss.org/ironjacamar/schema/datasources_1_0.xsd">
+    
+    <!-- Test datasource for Flyway integration tests -->
+    <datasource jndi-name="java:jboss/datasources/FlywayTestDS" 
+                pool-name="FlywayTestDS"
+                enabled="true"
+                use-java-context="true">
+        <connection-url>jdbc:h2:mem:flyway-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE</connection-url>
+        <driver>h2</driver>
+        <security>
+            <user-name>sa</user-name>
+            <password>sa</password>
+        </security>
+        <validation>
+            <valid-connection-checker class-name="org.jboss.jca.adapters.jdbc.extensions.h2.H2ValidConnectionChecker"/>
+            <exception-sorter class-name="org.jboss.jca.adapters.jdbc.extensions.h2.H2ExceptionSorter"/>
+        </validation>
+        <pool>
+            <min-pool-size>5</min-pool-size>
+            <max-pool-size>20</max-pool-size>
+            <prefill>true</prefill>
+        </pool>
+        <statement>
+            <prepared-statement-cache-size>32</prepared-statement-cache-size>
+            <share-prepared-statements>true</share-prepared-statements>
+        </statement>
+    </datasource>
+    
+    <!-- Additional datasource for multi-datasource testing -->
+    <datasource jndi-name="java:jboss/datasources/FlywaySecondaryDS" 
+                pool-name="FlywaySecondaryDS"
+                enabled="true"
+                use-java-context="true">
+        <connection-url>jdbc:h2:mem:flyway-secondary;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE</connection-url>
+        <driver>h2</driver>
+        <security>
+            <user-name>sa</user-name>
+            <password>sa</password>
+        </security>
+    </datasource>
+</datasources>

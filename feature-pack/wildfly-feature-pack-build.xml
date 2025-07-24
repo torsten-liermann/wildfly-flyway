@@ -1,0 +1,30 @@
+<build xmlns="urn:wildfly:feature-pack-build:3.3" producer="com.github.wildfly.flyway:wildfly-flyway-galleon-pack">
+    <transitive>
+        <dependency group-id="org.wildfly" artifact-id="wildfly-ee-galleon-pack">
+            <name>org.wildfly:wildfly-ee-galleon-pack</name>
+            <packages inherit="false">
+                <exclude name="product.conf"/>
+            </packages>
+            <default-configs inherit="false"/>
+        </dependency>
+    </transitive>
+    <dependencies>
+        <dependency group-id="org.wildfly" artifact-id="wildfly-galleon-pack">
+            <name>org.wildfly:wildfly-galleon-pack</name>
+            <packages inherit="false">
+                <include name="docs.examples"/>
+            </packages>
+            <default-configs inherit="false"/>
+        </dependency>
+    </dependencies>
+    <default-packages>
+        <package name="modules.all"/>
+    </default-packages>
+    <generate-feature-specs>
+        <extensions>
+            <standalone>
+                <extension>com.github.wildfly.flyway</extension>
+            </standalone>
+        </extensions>
+    </generate-feature-specs>
+</build>
