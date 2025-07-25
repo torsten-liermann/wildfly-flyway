@@ -2,6 +2,9 @@ package com.github.wildfly.flyway.deployment;
 
 import com.github.wildfly.flyway.logging.FlywayLogger;
 import com.github.wildfly.flyway.service.FlywayMigrationService;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
@@ -16,6 +19,7 @@ import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.server.deployment.Phase;
+import org.jboss.as.server.deployment.module.ResourceRoot;
 import org.jboss.msc.Service;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
@@ -24,6 +28,7 @@ import org.jboss.msc.service.ServiceTarget;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
+import org.jboss.vfs.VirtualFile;
 
 /**
  * Deployment processor that discovers DataSources and creates Flyway migration services.
@@ -122,6 +127,25 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
      * 3. Default datasource
      */
     private String findDataSourceJndiName(DeploymentUnit deploymentUnit) {
+        // Try to read from META-INF/flyway-test.properties
+        ResourceRoot root = deploymentUnit.getAttachment(org.jboss.as.server.deployment.Attachments.DEPLOYMENT_ROOT);
+        if (root != null) {
+            VirtualFile propertiesFile = root.getRoot().getChild("META-INF/flyway-test.properties");
+            if (propertiesFile.exists()) {
+                try (InputStream is = propertiesFile.openStream()) {
+                    Properties props = new Properties();
+                    props.load(is);
+                    String datasource = props.getProperty("spring.flyway.datasource");
+                    if (datasource != null && !datasource.trim().isEmpty()) {
+                        FlywayLogger.infof("Using datasource from properties: %s", datasource);
+                        return datasource.trim();
+                    }
+                } catch (IOException e) {
+                    FlywayLogger.warnf("Failed to read flyway-test.properties: %s", e.getMessage());
+                }
+            }
+        }
+        
         // Check for explicit datasource property
         String datasourceProperty = System.getProperty("spring.flyway.datasource");
         if (datasourceProperty != null) {

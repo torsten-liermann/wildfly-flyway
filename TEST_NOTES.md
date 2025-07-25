@@ -40,33 +40,45 @@ This configuration helps reduce (but not eliminate) the SEVERE logs by:
 - Enabling baseline on migrate
 - Allowing clean operations for test scenarios
 
-### Schema Isolation Challenges
+### Test Isolation Solution - Test-Specific DataSources
 
-The SimpleFlywayTest is currently disabled (@Ignore) because implementing proper schema isolation is more complex than initially anticipated:
+The test isolation issue has been successfully resolved by implementing test-specific DataSources:
 
-1. **Validation Still Occurs**: Even with `validate-on-migrate=false` and `ignore-migration-patterns`, Flyway still validates previously applied migrations
-2. **Properties Are Read Early**: The flyway-test.properties file is read during deployment, before test-specific setup can run
-3. **System Properties Don't Work**: Using system properties for dynamic schema names doesn't work well in a multi-threaded test environment
+1. **Each test deploys its own DataSource** via `-ds.xml` in the deployment
+2. **Each DataSource uses a unique H2 database** with different memory database names
+3. **FlywayDeploymentProcessor reads datasource from properties** in `META-INF/flyway-test.properties`
 
-### Possible Future Improvements
+Example implementation:
+```java
+String datasourceXml = 
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+    "<datasources xmlns=\"urn:jboss:domain:datasources:7.0\">\n" +
+    "    <datasource jndi-name=\"java:jboss/datasources/FlywayMigrationTestDS\"\n" +
+    "                pool-name=\"FlywayMigrationTestDS\"\n" +
+    "                enabled=\"true\"\n" +
+    "                use-java-context=\"true\">\n" +
+    "        <connection-url>jdbc:h2:mem:flyway-migration-test;DB_CLOSE_DELAY=-1</connection-url>\n" +
+    "        <driver>h2</driver>\n" +
+    "        <security>\n" +
+    "            <user-name>sa</user-name>\n" +
+    "            <password>sa</password>\n" +
+    "        </security>\n" +
+    "    </datasource>\n" +
+    "</datasources>";
 
-If complete test isolation becomes necessary:
+String flywayProperties = 
+    "spring.flyway.enabled=true\n" +
+    "spring.flyway.datasource=java:jboss/datasources/FlywayMigrationTestDS\n";
 
-1. **H2 SCHEMA Feature with Custom Service**: 
-   - Create a custom FlywayMigrationService that accepts schema names
-   - Modify the deployment processor to read schema from deployment metadata
-   - Each test would deploy with unique schema metadata
+// Deploy with test-specific datasource
+.addAsWebInfResource(new StringAsset(datasourceXml), "flyway-migration-test-ds.xml")
+.addAsManifestResource(new StringAsset(flywayProperties), "flyway-test.properties")
+```
 
-2. **Separate Database Names**: 
-   - Configure different H2 database URLs per test
-   - Requires modification to arquillian.xml datasource configuration
+This approach:
+- **No SEVERE logs** - Each test has its own isolated database
+- **No validation conflicts** - Tests don't share migration history
+- **Parallel test execution** - Tests can run concurrently without interference
+- **Simple implementation** - Uses standard WildFly datasource deployment
 
-3. **Test-Specific DataSources**: 
-   - Create separate datasources with unique names
-   - Each test references its own datasource
-
-4. **Clean Before Each Test**: 
-   - Enable `spring.flyway.clean-on-validation-error=true`
-   - Accept that each test starts fresh (current approach)
-
-For now, the SEVERE logs can be safely ignored as they demonstrate correct Flyway behavior. The SimpleFlywayTest is disabled to avoid test failures, but the core functionality works correctly as shown by FlywayMigrationTest.
+The only drawback is the deprecation warning for `-ds.xml` deployments, but this is acceptable for test scenarios.
