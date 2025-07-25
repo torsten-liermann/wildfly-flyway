@@ -1,5 +1,7 @@
 # WildFly Flyway Subsystem - Developer Guide
 
+[![CI](https://github.com/torsten-liermann/wildfly-flyway/actions/workflows/ci.yml/badge.svg)](https://github.com/torsten-liermann/wildfly-flyway/actions/workflows/ci.yml)
+
 A WildFly subsystem that integrates Flyway database migrations into the application server's deployment lifecycle.
 
 ## Table of Contents
