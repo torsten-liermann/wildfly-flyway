@@ -107,7 +107,9 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
         }
 
         // For WAR deployments, always check if Flyway is enabled via system property
-        if ("true".equalsIgnoreCase(System.getProperty("spring.flyway.enabled"))) {
+        // Support both spring.flyway.enabled and flyway.enabled
+        if ("true".equalsIgnoreCase(System.getProperty("spring.flyway.enabled")) ||
+            "true".equalsIgnoreCase(System.getProperty("flyway.enabled"))) {
             FlywayLogger.debugf("Flyway enabled via system property for deployment: %s", deploymentUnit.getName());
             return true;
         }
@@ -127,7 +129,11 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
         Properties flywayProperties = loadFlywayProperties(deploymentUnit);
 
         // Check deployment properties first
+        // Support both spring.flyway.datasource and flyway.datasource
         String datasource = flywayProperties.getProperty("spring.flyway.datasource");
+        if (datasource == null || datasource.trim().isEmpty()) {
+            datasource = flywayProperties.getProperty("flyway.datasource");
+        }
         if (datasource != null && !datasource.trim().isEmpty()) {
             // Resolve WildFly expressions
             datasource = resolveExpression(deploymentUnit, datasource);
@@ -135,9 +141,12 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
             return datasource;
         }
 
-        // Check system properties
+        // Check system properties - support both prefixes
         datasource = System.getProperty("spring.flyway.datasource");
-        if (datasource != null) {
+        if (datasource == null || datasource.trim().isEmpty()) {
+            datasource = System.getProperty("flyway.datasource");
+        }
+        if (datasource != null && !datasource.trim().isEmpty()) {
             FlywayLogger.infof("Using datasource from system property: %s", datasource);
             return datasource;
         }
@@ -155,15 +164,39 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
 
         ResourceRoot root = deploymentUnit.getAttachment(org.jboss.as.server.deployment.Attachments.DEPLOYMENT_ROOT);
         if (root != null) {
-            VirtualFile propertiesFile = root.getRoot().getChild("META-INF/flyway.properties");
-            if (propertiesFile.exists()) {
-                try (InputStream is = propertiesFile.openStream()) {
-                    properties.load(is);
-                    FlywayLogger.debugf("Loaded %d properties from META-INF/flyway.properties", properties.size());
-                } catch (IOException e) {
-                    FlywayLogger.warnf("Failed to load META-INF/flyway.properties: %s", e.getMessage());
+            // Try multiple locations for different deployment types
+            String[] possibleLocations = {
+                "META-INF/flyway.properties",
+                "WEB-INF/classes/META-INF/flyway.properties",
+                "WEB-INF/flyway.properties"
+            };
+            
+            VirtualFile propertiesFile = null;
+            for (String location : possibleLocations) {
+                VirtualFile candidate = root.getRoot().getChild(location);
+                if (candidate.exists()) {
+                    propertiesFile = candidate;
+                    FlywayLogger.infof("Found flyway.properties at: %s", location);
+                    break;
                 }
             }
+            
+            if (propertiesFile != null && propertiesFile.exists()) {
+                try (InputStream is = propertiesFile.openStream()) {
+                    properties.load(is);
+                    FlywayLogger.infof("Loaded %d properties from %s", properties.size(), propertiesFile.getPathName());
+                    // Log the properties for debugging
+                    for (String key : properties.stringPropertyNames()) {
+                        FlywayLogger.debugf("  Property: %s = %s", key, properties.getProperty(key));
+                    }
+                } catch (IOException e) {
+                    FlywayLogger.warnf("Failed to load flyway.properties: %s", e.getMessage());
+                }
+            } else {
+                FlywayLogger.infof("No flyway.properties found in deployment: %s", deploymentUnit.getName());
+            }
+        } else {
+            FlywayLogger.debugf("No deployment root found for: %s", deploymentUnit.getName());
         }
 
         return properties;

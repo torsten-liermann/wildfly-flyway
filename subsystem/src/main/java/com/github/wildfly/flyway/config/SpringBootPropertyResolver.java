@@ -16,14 +16,17 @@ import org.jboss.dmr.ModelNode;
  * <p>
  * Supports:
  * - spring.flyway.* properties
+ * - flyway.* properties (normalized to spring.flyway.*)
  * - ${property:default} placeholder syntax
- * - Vendor-specific locations (db/migration/{vendor})
+ * - {vendor} placeholder in locations (e.g., db/vendors/{vendor})
+ * - Environment variables (SPRING_FLYWAY_* and FLYWAY_*)
  */
 public class SpringBootPropertyResolver {
 
     private static final Logger LOGGER = Logger.getLogger(SpringBootPropertyResolver.class.getName());
 
-    private static final String PROPERTY_PREFIX = "spring.flyway.";
+    private static final String SPRING_PROPERTY_PREFIX = "spring.flyway.";
+    private static final String FLYWAY_PROPERTY_PREFIX = "flyway.";
     private static final Pattern VENDOR_PATTERN = Pattern.compile("\\{vendor}");
 
     // Security patterns for input validation
@@ -57,26 +60,31 @@ public class SpringBootPropertyResolver {
             Properties systemProps = System.getProperties();
             systemProps.forEach((key, value) -> {
                 String keyStr = key.toString();
-                if (keyStr.startsWith(PROPERTY_PREFIX) && isValidPropertyKey(keyStr)) {
+                // Support both spring.flyway.* and flyway.* properties
+                if ((keyStr.startsWith(SPRING_PROPERTY_PREFIX) || keyStr.startsWith(FLYWAY_PROPERTY_PREFIX)) 
+                        && isValidPropertyKey(keyStr)) {
                     String sanitizedValue = sanitizePropertyValue(value.toString());
                     String resolvedValue = resolvePlaceholders(sanitizedValue);
                     if (resolvedValue != null) {
-                        properties.put(keyStr, resolvedValue);
-                        LOGGER.log(Level.FINEST, "Resolved system property: {0}={1}", new Object[]{keyStr, maskSensitiveValue(keyStr, resolvedValue)});
+                        // Normalize to spring.flyway.* format
+                        String normalizedKey = normalizePropertyKey(keyStr);
+                        properties.put(normalizedKey, resolvedValue);
+                        LOGGER.log(Level.FINEST, "Resolved system property: {0}={1}", new Object[]{normalizedKey, maskSensitiveValue(normalizedKey, resolvedValue)});
                     }
                 }
             });
 
-            // 2. Environment variables (SPRING_FLYWAY_URL -> spring.flyway.url)
+            // 2. Environment variables (SPRING_FLYWAY_URL -> spring.flyway.url, FLYWAY_URL -> spring.flyway.url)
             System.getenv().forEach((key, value) -> {
-                if (key.startsWith("SPRING_FLYWAY_") && isValidEnvironmentKey(key)) {
+                if ((key.startsWith("SPRING_FLYWAY_") || key.startsWith("FLYWAY_")) && isValidEnvironmentKey(key)) {
                     String propertyKey = key.toLowerCase().replace('_', '.');
-                    if (!properties.containsKey(propertyKey)) { // System properties take precedence
+                    String normalizedKey = normalizePropertyKey(propertyKey);
+                    if (!properties.containsKey(normalizedKey)) { // System properties take precedence
                         String sanitizedValue = sanitizePropertyValue(value);
                         String resolvedValue = resolvePlaceholders(sanitizedValue);
                         if (resolvedValue != null) {
-                            properties.put(propertyKey, resolvedValue);
-                            LOGGER.log(Level.FINEST, "Resolved environment variable: {0}={1}", new Object[]{propertyKey, maskSensitiveValue(propertyKey, resolvedValue)});
+                            properties.put(normalizedKey, resolvedValue);
+                            LOGGER.log(Level.FINEST, "Resolved environment variable: {0}={1}", new Object[]{normalizedKey, maskSensitiveValue(normalizedKey, resolvedValue)});
                         }
                     }
                 }
@@ -84,9 +92,6 @@ public class SpringBootPropertyResolver {
 
             // Apply defaults
             applyDefaults(properties);
-
-            // Handle vendor-specific locations
-            resolveVendorLocations(properties);
 
             LOGGER.log(Level.FINE, "Property resolution completed. Total properties: {0}", properties.size());
             return properties;
@@ -152,30 +157,25 @@ public class SpringBootPropertyResolver {
     }
 
     /**
-     * Handle vendor-specific migration locations.
+     * Normalize property key to spring.flyway.* format.
      */
-    private void resolveVendorLocations(Map<String, String> properties) {
-        String locations = properties.get("spring.flyway.locations");
-        if (locations != null && vendor != null) {
-            // Add vendor-specific location if base location exists
-            String[] locationArray = locations.split(",");
-            StringBuilder newLocations = new StringBuilder();
-
-            for (String location : locationArray) {
-                location = location.trim();
-                if (newLocations.length() > 0) {
-                    newLocations.append(",");
-                }
-                newLocations.append(location);
-
-                // Add vendor-specific variant
-                if (location.endsWith("/db/migration") || location.endsWith("\\db\\migration")) {
-                    newLocations.append(",").append(location).append("/").append(vendor);
-                }
-            }
-
-            properties.put("spring.flyway.locations", newLocations.toString());
+    private String normalizePropertyKey(String key) {
+        if (key == null) {
+            return null;
         }
+        
+        // If it already starts with spring.flyway., return as is
+        if (key.startsWith(SPRING_PROPERTY_PREFIX)) {
+            return key;
+        }
+        
+        // If it starts with flyway., convert to spring.flyway.
+        if (key.startsWith(FLYWAY_PROPERTY_PREFIX)) {
+            return SPRING_PROPERTY_PREFIX + key.substring(FLYWAY_PROPERTY_PREFIX.length());
+        }
+        
+        // Otherwise return as is (shouldn't happen with our checks)
+        return key;
     }
 
     /**

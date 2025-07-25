@@ -24,7 +24,7 @@ public class FlywayMigrationErrorTest {
                         "                pool-name=\"FlywayErrorTestDS\"\n" +
                         "                enabled=\"true\"\n" +
                         "                use-java-context=\"true\">\n" +
-                        "        <connection-url>jdbc:h2:mem:flyway-error-test;DB_CLOSE_DELAY=-1</connection-url>\n" +
+                        "        <connection-url>jdbc:h2:mem:flyway-error-test;DB_CLOSE_DELAY=-1;CASE_INSENSITIVE_IDENTIFIERS=TRUE</connection-url>\n" +
                         "        <driver>h2</driver>\n" +
                         "        <security>\n" +
                         "            <user-name>sa</user-name>\n" +

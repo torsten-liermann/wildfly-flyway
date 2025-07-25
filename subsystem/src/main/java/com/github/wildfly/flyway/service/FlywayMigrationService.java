@@ -15,9 +15,12 @@ import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
 
 import javax.sql.DataSource;
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -118,12 +121,42 @@ public class FlywayMigrationService {
             // Resolve Spring Boot style properties with error handling
             Map<String, String> properties;
             try {
+                // First, load deployment-specific properties from META-INF/flyway.properties
+                Properties deploymentProps = loadDeploymentProperties();
+                properties = new ConcurrentHashMap<>();
+                
+                if (!deploymentProps.isEmpty()) {
+                    FlywayLogger.infof("Loaded %d properties from META-INF/flyway.properties", deploymentProps.size());
+                    // Process deployment properties first, normalizing keys
+                    for (String key : deploymentProps.stringPropertyNames()) {
+                        String value = deploymentProps.getProperty(key);
+                        // Normalize key to spring.flyway.* format
+                        String normalizedKey = normalizePropertyKey(key);
+                        FlywayLogger.infof("Property normalization: '%s' -> '%s' = '%s'", key, normalizedKey, value);
+                        // Replace {vendor} placeholders
+                        if (value != null && detectedVendor != null && value.contains("{vendor}")) {
+                            value = value.replace("{vendor}", detectedVendor);
+                            FlywayLogger.debugf("Replaced vendor placeholder: '%s' -> '%s'", deploymentProps.getProperty(key), value);
+                        }
+                        properties.put(normalizedKey, value);
+                    }
+                }
+                
+                // Then resolve system properties and environment variables
                 SpringBootPropertyResolver resolver = new SpringBootPropertyResolver(
                         expressionResolver,
                         detectedVendor);
-                properties = resolver.resolveProperties();
+                Map<String, String> systemProperties = resolver.resolveProperties();
+                
+                // Merge system properties, but deployment properties take precedence
+                final Map<String, String> finalProperties = properties;
+                systemProperties.forEach((key, value) -> {
+                    if (!finalProperties.containsKey(key)) {
+                        finalProperties.put(key, value);
+                    }
+                });
 
-                if (properties == null || properties.isEmpty()) {
+                if (properties.isEmpty()) {
                     FlywayLogger.warnf("No Flyway properties found for deployment: %s, using defaults", deploymentName);
                     properties = getDefaultProperties();
                 }
@@ -133,7 +166,10 @@ public class FlywayMigrationService {
             }
 
             // Check if Flyway is enabled
-            if (!"true".equalsIgnoreCase(properties.get("spring.flyway.enabled"))) {
+            FlywayLogger.infof("Checking enabled status. Properties contain: %s", properties.keySet());
+            String enabledValue = properties.get("spring.flyway.enabled");
+            FlywayLogger.infof("spring.flyway.enabled = '%s'", enabledValue);
+            if (!"true".equalsIgnoreCase(enabledValue)) {
                 FlywayLogger.infof("Flyway is disabled for deployment: %s", deploymentName);
                 started.set(false); // Reset started flag
                 return;
@@ -349,6 +385,46 @@ public class FlywayMigrationService {
         } finally {
             migrationInProgress.set(false);
         }
+    }
+
+    /**
+     * Load properties from META-INF/flyway.properties in the deployment
+     */
+    private Properties loadDeploymentProperties() {
+        Properties properties = new Properties();
+        if (deploymentClassLoader != null) {
+            try (InputStream is = deploymentClassLoader.getResourceAsStream("META-INF/flyway.properties")) {
+                if (is != null) {
+                    properties.load(is);
+                    FlywayLogger.debugf("Loaded deployment properties from META-INF/flyway.properties");
+                }
+            } catch (IOException e) {
+                FlywayLogger.warnf("Failed to load META-INF/flyway.properties: %s", e.getMessage());
+            }
+        }
+        return properties;
+    }
+    
+    /**
+     * Normalize property key to spring.flyway.* format.
+     */
+    private String normalizePropertyKey(String key) {
+        if (key == null) {
+            return null;
+        }
+        
+        // If it already starts with spring.flyway., return as is
+        if (key.startsWith("spring.flyway.")) {
+            return key;
+        }
+        
+        // If it starts with flyway., convert to spring.flyway.
+        if (key.startsWith("flyway.")) {
+            return "spring.flyway." + key.substring("flyway.".length());
+        }
+        
+        // Otherwise return as is (shouldn't happen with our checks)
+        return key;
     }
 
     private Map<String, String> getDefaultProperties() {

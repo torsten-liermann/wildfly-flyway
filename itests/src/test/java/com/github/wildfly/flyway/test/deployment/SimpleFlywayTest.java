@@ -34,7 +34,7 @@ public class SimpleFlywayTest {
             "                pool-name=\"SimpleFlywayTestDS\"\n" +
             "                enabled=\"true\"\n" +
             "                use-java-context=\"true\">\n" +
-            "        <connection-url>jdbc:h2:mem:simple-flyway-test;DB_CLOSE_DELAY=-1</connection-url>\n" +
+            "        <connection-url>jdbc:h2:mem:simple-flyway-test;DB_CLOSE_DELAY=-1;CASE_INSENSITIVE_IDENTIFIERS=TRUE</connection-url>\n" +
             "        <driver>h2</driver>\n" +
             "        <security>\n" +
             "            <user-name>sa</user-name>\n" +
