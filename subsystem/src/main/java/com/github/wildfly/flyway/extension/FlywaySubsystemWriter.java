@@ -28,6 +28,14 @@ final class FlywaySubsystemWriter implements XMLStreamConstants, XMLElementWrite
             writer.writeAttribute("enabled", "false");
         }
         
+        // Write default-datasource attribute if defined and not default
+        if (node.hasDefined("default-datasource")) {
+            String datasource = node.get("default-datasource").asString();
+            if (!"ExampleDS".equals(datasource)) {
+                writer.writeAttribute("default-datasource", datasource);
+            }
+        }
+        
         writer.writeEndElement();
     }
 }

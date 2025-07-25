@@ -33,13 +33,15 @@ final class FlywaySubsystemParser implements XMLStreamConstants, XMLElementReade
         subsystemAdd.get(OP).set(ADD);
         subsystemAdd.get(OP_ADDR).set(address);
         
-        // Parse enabled attribute if present
+        // Parse attributes if present
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String attrName = reader.getAttributeLocalName(i);
             String attrValue = reader.getAttributeValue(i);
             
             if ("enabled".equals(attrName)) {
                 subsystemAdd.get("enabled").set(attrValue);
+            } else if ("default-datasource".equals(attrName)) {
+                subsystemAdd.get("default-datasource").set(attrValue);
             }
         }
         

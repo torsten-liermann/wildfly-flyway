@@ -124,7 +124,6 @@
     <modules>
         <module>subsystem</module>
         <module>feature-pack</module>
-        <module>testextension</module>
         <module>itests</module>
     </modules>
 

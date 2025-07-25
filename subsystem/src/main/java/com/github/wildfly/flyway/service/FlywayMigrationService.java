@@ -41,6 +41,7 @@ public class FlywayMigrationService {
     private final Supplier<DataSource> dataSourceSupplier;
     private final Supplier<PathManager> pathManagerSupplier;
     private final ExpressionResolver expressionResolver;
+    private final ClassLoader deploymentClassLoader;
     
     // Thread safety
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -56,12 +57,14 @@ public class FlywayMigrationService {
     public FlywayMigrationService(String deploymentName,
                                   Consumer<FlywayMigrationService> serviceConsumer,
                                   Supplier<DataSource> dataSourceSupplier,
-                                  Supplier<PathManager> pathManagerSupplier) {
+                                  Supplier<PathManager> pathManagerSupplier,
+                                  ClassLoader deploymentClassLoader) {
         this.deploymentName = deploymentName;
         this.serviceConsumer = serviceConsumer;
         this.dataSourceSupplier = dataSourceSupplier;
         this.pathManagerSupplier = pathManagerSupplier;
         this.expressionResolver = ExpressionResolver.SIMPLE;
+        this.deploymentClassLoader = deploymentClassLoader;
     }
     
     public void start(StartContext context) throws StartException {
@@ -140,15 +143,52 @@ public class FlywayMigrationService {
             // Configure Flyway using comprehensive configuration
             FluentConfiguration config;
             try {
-                config = Flyway.configure()
-                        .dataSource(dataSource)
-                        .connectRetries(MAX_RETRY_ATTEMPTS);
+                // Use deployment classloader if available, otherwise use default
+                if (deploymentClassLoader != null) {
+                    config = Flyway.configure(deploymentClassLoader)
+                            .dataSource(dataSource)
+                            .connectRetries(MAX_RETRY_ATTEMPTS);
+                    FlywayLogger.infof("Using deployment classloader for deployment: %s", deploymentName);
+                    
+                    // Debug: Check if migrations are visible
+                    try {
+                        var resource = deploymentClassLoader.getResource("db/migration/V1__Create_person_table.sql");
+                        if (resource != null) {
+                            FlywayLogger.infof("Found migration resource: %s", resource);
+                        } else {
+                            FlywayLogger.warnf("Migration resource NOT found in deployment classloader");
+                            // Try other locations
+                            String[] testLocations = {
+                                "WEB-INF/classes/db/migration/V1__Create_person_table.sql",
+                                "META-INF/db/migration/V1__Create_person_table.sql",
+                                "/db/migration/V1__Create_person_table.sql"
+                            };
+                            for (String loc : testLocations) {
+                                var testResource = deploymentClassLoader.getResource(loc);
+                                if (testResource != null) {
+                                    FlywayLogger.infof("Found migration at alternate location: %s -> %s", loc, testResource);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        FlywayLogger.debugf("Error checking for migration resources: %s", e.getMessage());
+                    }
+                } else {
+                    config = Flyway.configure()
+                            .dataSource(dataSource)
+                            .connectRetries(MAX_RETRY_ATTEMPTS);
+                }
                 
                 // Apply comprehensive configuration
                 FlywayConfiguration flywayConfig = new FlywayConfiguration(properties);
                 flywayConfig.applyTo(config);
                 
                 FlywayLogger.infof("Applied comprehensive Flyway configuration for deployment: %s", deploymentName);
+                
+                // Debug: Log configured locations
+                String locationsProperty = properties.get("spring.flyway.locations");
+                FlywayLogger.infof("Configured Flyway locations: %s", 
+                    locationsProperty != null ? locationsProperty : "default (classpath:db/migration)");
                 
             } catch (Exception e) {
                 FlywayLogger.errorf(e, "Error configuring Flyway for deployment: %s", deploymentName);

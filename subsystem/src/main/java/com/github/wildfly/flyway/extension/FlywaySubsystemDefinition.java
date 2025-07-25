@@ -1,6 +1,7 @@
 package com.github.wildfly.flyway.extension;
 
 import com.github.wildfly.flyway.deployment.FlywayDeploymentProcessor;
+import com.github.wildfly.flyway.management.FlywayManagementResourceDefinition;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -37,8 +38,16 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
             .setRestartAllServices()
             .build();
     
+    static final AttributeDefinition DEFAULT_DATASOURCE = SimpleAttributeDefinitionBuilder
+            .create("default-datasource", ModelType.STRING)
+            .setDefaultValue(new ModelNode("ExampleDS"))
+            .setRequired(false)
+            .setAllowExpression(true)
+            .setRestartAllServices()
+            .build();
+    
     private static final Collection<AttributeDefinition> ATTRIBUTES = Collections.unmodifiableList(
-            Arrays.asList(ENABLED));
+            Arrays.asList(ENABLED, DEFAULT_DATASOURCE));
     
     FlywaySubsystemDefinition() {
         super(FlywayExtension.SUBSYSTEM_PATH,
@@ -57,6 +66,13 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
         resourceRegistration.registerOperationHandler(
                 GenericSubsystemDescribeHandler.DEFINITION,
                 GenericSubsystemDescribeHandler.INSTANCE);
+    }
+    
+    @Override
+    public void registerChildren(ManagementResourceRegistration resourceRegistration) {
+        super.registerChildren(resourceRegistration);
+        // Register the management resource for Flyway operations
+        resourceRegistration.registerSubModel(new FlywayManagementResourceDefinition());
     }
     
     /**

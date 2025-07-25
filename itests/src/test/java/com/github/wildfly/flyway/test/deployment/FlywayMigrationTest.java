@@ -1,0 +1,92 @@
+package com.github.wildfly.flyway.test.deployment;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import javax.naming.InitialContext;
+import javax.sql.DataSource;
+import org.jboss.arquillian.container.test.api.Deployment;
+import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.test.api.ArquillianResource;
+import org.jboss.shrinkwrap.api.Archive;
+import org.jboss.shrinkwrap.api.ShrinkWrap;
+import org.jboss.shrinkwrap.api.spec.WebArchive;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(Arquillian.class)
+public class FlywayMigrationTest {
+
+    private static final String EXAMPLE_DS = "java:jboss/datasources/ExampleDS";
+    private static final String QUERY_TABLES = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='PUBLIC'";
+    private static final String QUERY_TABLE_COLUMNS = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? ORDER BY COLUMN_NAME ASC";
+
+    @ArquillianResource
+    private InitialContext context;
+
+    @Deployment
+    public static Archive<?> deployment() {
+        return ShrinkWrap.create(WebArchive.class, "flyway-migration-test.war")
+                .addAsResource("db/migration/V1__Create_person_table.sql", "db/migration/V1__Create_person_table.sql")
+                .addAsResource("db/migration/V2__Add_people.sql", "db/migration/V2__Add_people.sql")
+                .addClass(FlywayMigrationTest.class);
+    }
+
+    @Test
+    public void testFlywayMigrationExecuted() throws Exception {
+        // Get datasource
+        DataSource dataSource = (DataSource) context.lookup(EXAMPLE_DS);
+        
+        // Check that the migrations were executed
+        List<String> tables = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement(QUERY_TABLES)) {
+                ResultSet resultSet = statement.executeQuery();
+                while (resultSet.next()) {
+                    tables.add(resultSet.getString("TABLE_NAME"));
+                }
+            }
+        }
+        
+        // Should have flyway_schema_history and PERSON tables
+        assertTrue("Should have flyway_schema_history table", tables.contains("flyway_schema_history"));
+        assertTrue("Should have PERSON table", tables.contains("PERSON"));
+        
+        // Check columns in PERSON table
+        List<String> columns = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement(QUERY_TABLE_COLUMNS)) {
+                statement.setString(1, "PERSON");
+                ResultSet resultSet = statement.executeQuery();
+                while (resultSet.next()) {
+                    columns.add(resultSet.getString("COLUMN_NAME").toLowerCase());
+                }
+            }
+        }
+        
+        // Sort columns for comparison since order doesn't matter
+        columns.sort(String::compareTo);
+        List<String> expectedColumns = Arrays.asList("id", "first_name", "last_name");
+        expectedColumns.sort(String::compareTo);
+        assertEquals("PERSON table should have expected columns", expectedColumns, columns);
+        
+        // Check data was inserted
+        int count = 0;
+        try (Connection connection = dataSource.getConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement("SELECT COUNT(*) FROM PERSON")) {
+                ResultSet resultSet = statement.executeQuery();
+                if (resultSet.next()) {
+                    count = resultSet.getInt(1);
+                }
+            }
+        }
+        
+        assertEquals("Should have 3 people in PERSON table", 3, count);
+    }
+}

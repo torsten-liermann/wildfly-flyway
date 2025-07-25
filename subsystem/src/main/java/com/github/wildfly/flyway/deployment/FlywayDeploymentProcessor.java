@@ -9,6 +9,7 @@ import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.controller.services.path.PathManager;
 import org.jboss.as.ee.component.Attachments;
 import org.jboss.as.ee.component.EEModuleDescription;
+import org.jboss.as.naming.ManagedReferenceFactory;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
@@ -20,6 +21,9 @@ import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
+import org.jboss.msc.service.StartContext;
+import org.jboss.msc.service.StartException;
+import org.jboss.msc.service.StopContext;
 
 /**
  * Deployment processor that discovers DataSources and creates Flyway migration services.
@@ -32,6 +36,7 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
     public static final int PRIORITY = 0x3800 + 0x100;
     
     private static final String DEFAULT_DATASOURCE_JNDI_NAME = "java:jboss/datasources/ExampleDS";
+    private String configuredDefaultDatasource = null;
     private static final String PATH_MANAGER_CAPABILITY = "org.wildfly.management.path-manager";
     
     @Override
@@ -68,15 +73,45 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
      */
     private boolean hasMigrations(DeploymentUnit deploymentUnit) {
         // Check for standard migration locations
-        var resourceRoot = deploymentUnit.getAttachment(org.jboss.as.server.deployment.Attachments.MODULE);
-        if (resourceRoot == null || resourceRoot.getClassLoader() == null) {
+        var module = deploymentUnit.getAttachment(org.jboss.as.server.deployment.Attachments.MODULE);
+        if (module == null || module.getClassLoader() == null) {
             return false;
         }
         
-        // Check classpath for migration resources
-        return resourceRoot.getClassLoader().getResource("db/migration") != null ||  
-               resourceRoot.getClassLoader().getResource("WEB-INF/classes/db/migration") != null ||  
-               resourceRoot.getClassLoader().getResource("META-INF/db/migration") != null;
+        ClassLoader classLoader = module.getClassLoader();
+        
+        // Check for any SQL migration files in standard locations
+        String[] locations = {
+            "db/migration",
+            "WEB-INF/classes/db/migration",
+            "META-INF/db/migration"
+        };
+        
+        for (String location : locations) {
+            // Check if directory exists
+            if (classLoader.getResource(location) != null) {
+                return true;
+            }
+            
+            // Also check for specific migration files (V*.sql, U*.sql, R*.sql)
+            String[] prefixes = {"V", "U", "R"};
+            for (String prefix : prefixes) {
+                if (classLoader.getResource(location + "/" + prefix + "1__") != null ||
+                    classLoader.getResource(location + "/" + prefix + "001__") != null ||
+                    classLoader.getResource(location + "/" + prefix + "1.0__") != null ||
+                    classLoader.getResource(location + "/" + prefix + "1_") != null) {
+                    return true;
+                }
+            }
+        }
+        
+        // For WAR deployments, always check if Flyway is enabled via system property
+        if ("true".equalsIgnoreCase(System.getProperty("spring.flyway.enabled"))) {
+            FlywayLogger.debugf("Flyway enabled via system property for deployment: %s", deploymentUnit.getName());
+            return true;
+        }
+        
+        return false;
     }
     
     /**
@@ -127,9 +162,22 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
         // Create service
         final ServiceBuilder<?> serviceBuilder = serviceTarget.addService(serviceName);
         
-        // DataSource supplier
+        // DataSource injection - use proper dependency injection with ManagedReferenceFactory
         ContextNames.BindInfo bindInfo = ContextNames.bindInfoFor(dataSourceJndiName);
-        Supplier<DataSource> dataSourceSupplier = serviceBuilder.requires(bindInfo.getBinderServiceName());
+        ServiceName dataSourceServiceName = bindInfo.getBinderServiceName();
+        
+        // Add dependency for ManagedReferenceFactory
+        Supplier<ManagedReferenceFactory> referenceFactorySupplier = serviceBuilder.requires(dataSourceServiceName);
+        
+        // Create supplier that resolves the DataSource from the ManagedReferenceFactory
+        Supplier<DataSource> dataSourceSupplier = () -> {
+            try {
+                ManagedReferenceFactory factory = referenceFactorySupplier.get();
+                return (DataSource) factory.getReference().getInstance();
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to get DataSource from ManagedReferenceFactory", e);
+            }
+        };
         
         // PathManager supplier
         Supplier<PathManager> pathManagerSupplier = serviceBuilder.requires(
@@ -138,14 +186,39 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
         // Consumer for service reference
         Consumer<FlywayMigrationService> serviceConsumer = serviceBuilder.provides(serviceName);
         
-        // Create and install service using modern Service pattern
+        // Get deployment classloader
+        var module = deploymentUnit.getAttachment(org.jboss.as.server.deployment.Attachments.MODULE);
+        ClassLoader deploymentClassLoader = module != null ? module.getClassLoader() : null;
+        
+        // Create and install service using modern Service pattern with lifecycle
         FlywayMigrationService serviceInstance = new FlywayMigrationService(
                 deploymentUnit.getName(),
                 serviceConsumer,
                 dataSourceSupplier,
-                pathManagerSupplier);
+                pathManagerSupplier,
+                deploymentClassLoader);
         
-        serviceBuilder.setInstance(Service.newInstance(serviceConsumer, serviceInstance));
+        // Use Service.newInstance with lifecycle hooks
+        Service service = Service.newInstance(serviceConsumer, serviceInstance);
+        serviceBuilder.setInstance(new Service() {
+            @Override
+            public void start(StartContext context) throws StartException {
+                try {
+                    serviceInstance.start(context);
+                    service.start(context);
+                } catch (org.jboss.msc.service.StartException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new StartException(e.getMessage(), e);
+                }
+            }
+            
+            @Override
+            public void stop(StopContext context) {
+                serviceInstance.stop(context);
+                service.stop(context);
+            }
+        });
         serviceBuilder.setInitialMode(ServiceController.Mode.ACTIVE);
         serviceBuilder.install();
         

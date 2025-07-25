@@ -4,6 +4,7 @@
         <artifact name="${com.github.wildfly.flyway:wildfly-flyway-subsystem}"/>
     </resources>
     <dependencies>
+        <module name="java.sql"/>
         <module name="org.flywaydb.core"/>
         <module name="org.jboss.as.controller"/>
         <module name="org.jboss.as.ee"/>

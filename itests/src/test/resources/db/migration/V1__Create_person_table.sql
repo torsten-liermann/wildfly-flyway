@@ -1,5 +1,5 @@
-CREATE TABLE person (
+CREATE TABLE PERSON (
     id INT NOT NULL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100)
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL
 );
