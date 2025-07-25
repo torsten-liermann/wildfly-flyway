@@ -192,9 +192,7 @@ public class FlywayConfiguration {
     }
     
     private void applyDefaults() {
-        DEFAULTS.forEach((key, value) -> {
-            properties.putIfAbsent(key, value);
-        });
+        DEFAULTS.forEach(properties::putIfAbsent);
     }
     
     private void applyLocations(FluentConfiguration config) {
@@ -476,7 +474,7 @@ public class FlywayConfiguration {
     
     private boolean getBoolean(String key) {
         String value = getProperty(key);
-        return value != null && Boolean.parseBoolean(value);
+        return Boolean.parseBoolean(value);
     }
     
     private int getInt(String key, int defaultValue) {
@@ -495,8 +493,5 @@ public class FlywayConfiguration {
     public boolean isEnabled() {
         return getBoolean(ENABLED);
     }
-    
-    public Map<String, String> getProperties() {
-        return new HashMap<>(properties);
-    }
+
 }

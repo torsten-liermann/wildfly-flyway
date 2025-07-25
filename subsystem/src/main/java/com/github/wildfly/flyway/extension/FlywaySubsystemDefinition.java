@@ -2,19 +2,15 @@ package com.github.wildfly.flyway.extension;
 
 import com.github.wildfly.flyway.deployment.FlywayDeploymentProcessor;
 import com.github.wildfly.flyway.management.FlywayManagementResourceDefinition;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.AbstractRemoveStepHandler;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
+import org.jboss.as.controller.ReloadRequiredWriteAttributeHandler;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleResourceDefinition;
-import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.operations.common.GenericSubsystemDescribeHandler;
-import org.jboss.as.controller.ReloadRequiredWriteAttributeHandler;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.as.server.AbstractDeploymentChainStep;
 import org.jboss.as.server.DeploymentProcessorTarget;
@@ -22,14 +18,14 @@ import org.jboss.as.server.deployment.Phase;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+
 /**
  * Flyway subsystem definition - simple subsystem with minimal configuration.
  */
 public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
-    
-    static final RuntimeCapability<Void> FLYWAY_CAPABILITY = RuntimeCapability.Builder
-            .of("org.wildfly.extension.flyway")
-            .build();
     
     static final AttributeDefinition ENABLED = SimpleAttributeDefinitionBuilder
             .create("enabled", ModelType.BOOLEAN)
@@ -56,11 +52,7 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
                 FlywaySubsystemAdd.INSTANCE,
                 FlywaySubsystemRemove.INSTANCE);
     }
-    
-    public Collection<AttributeDefinition> getAttributes() {
-        return ATTRIBUTES;
-    }
-    
+
     @Override
     public void registerAttributes(ManagementResourceRegistration resourceRegistration) {
         // Register the attributes for read/write

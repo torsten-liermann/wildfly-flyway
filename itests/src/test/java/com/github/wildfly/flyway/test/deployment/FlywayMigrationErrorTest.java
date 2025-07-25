@@ -11,8 +11,6 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static org.junit.Assert.fail;
-
 @RunWith(Arquillian.class)
 public class FlywayMigrationErrorTest {
 

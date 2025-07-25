@@ -59,6 +59,11 @@
             <version>${version.org.wildfly}</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.jboss.metadata</groupId>
+            <artifactId>jboss-metadata-common</artifactId>
+            <scope>provided</scope>
+        </dependency>
         
         <!-- Flyway -->
         <dependency>

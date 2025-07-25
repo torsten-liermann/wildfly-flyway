@@ -7,36 +7,35 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+
 import org.jboss.as.controller.ExpressionResolver;
 import org.jboss.dmr.ModelNode;
 
 /**
  * Resolves Spring Boot style Flyway properties with JBoss expression support.
- * 
+ * <p>
  * Supports:
  * - spring.flyway.* properties
  * - ${property:default} placeholder syntax
  * - Vendor-specific locations (db/migration/{vendor})
  */
 public class SpringBootPropertyResolver {
-    
+
     private static final Logger LOGGER = Logger.getLogger(SpringBootPropertyResolver.class.getName());
-    
+
     private static final String PROPERTY_PREFIX = "spring.flyway.";
-    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
-    private static final Pattern VENDOR_PATTERN = Pattern.compile("\\{vendor\\}");
-    
+    private static final Pattern VENDOR_PATTERN = Pattern.compile("\\{vendor}");
+
     // Security patterns for input validation
     private static final Pattern SCRIPT_PATTERN = Pattern.compile("<script[^>]*>.*?</script>", Pattern.CASE_INSENSITIVE);
     private static final Pattern SQL_INJECTION_PATTERN = Pattern.compile("('.+--)|(--)|(;)|(\\*/)|(/\\*)|(@)|(char\\()|('\\s*or\\s*'1'\\s*=\\s*'1)|(\\s*or\\s*1\\s*=\\s*1)", Pattern.CASE_INSENSITIVE);
     private static final Pattern PATH_TRAVERSAL_PATTERN = Pattern.compile("\\.\\.[\\\\/]");
-    private static final Pattern JNDI_PATTERN = Pattern.compile("\\$\\{jndi:.*\\}", Pattern.CASE_INSENSITIVE);
+    private static final Pattern JNDI_PATTERN = Pattern.compile("\\$\\{jndi:.*}", Pattern.CASE_INSENSITIVE);
     private static final Pattern COMMAND_INJECTION_PATTERN = Pattern.compile("[`$()]|\\$\\(.*\\)");
-    
+
     private final ExpressionResolver expressionResolver;
     private final String vendor;
-    private final Map<String, String> propertyCache = new ConcurrentHashMap<>();
-    
+
     public SpringBootPropertyResolver(ExpressionResolver expressionResolver, String vendor) {
         if (expressionResolver == null) {
             throw new IllegalArgumentException("ExpressionResolver cannot be null");
@@ -45,14 +44,14 @@ public class SpringBootPropertyResolver {
         this.vendor = sanitizeVendor(vendor);
         LOGGER.log(Level.FINE, "Initialized SpringBootPropertyResolver with vendor: {0}", this.vendor);
     }
-    
+
     /**
      * Resolve all Flyway properties from various sources.
      */
     public Map<String, String> resolveProperties() {
         LOGGER.log(Level.FINE, "Starting property resolution");
         Map<String, String> properties = new ConcurrentHashMap<>();
-        
+
         try {
             // 1. System properties
             Properties systemProps = System.getProperties();
@@ -67,7 +66,7 @@ public class SpringBootPropertyResolver {
                     }
                 }
             });
-            
+
             // 2. Environment variables (SPRING_FLYWAY_URL -> spring.flyway.url)
             System.getenv().forEach((key, value) -> {
                 if (key.startsWith("SPRING_FLYWAY_") && isValidEnvironmentKey(key)) {
@@ -82,16 +81,16 @@ public class SpringBootPropertyResolver {
                     }
                 }
             });
-            
+
             // Apply defaults
             applyDefaults(properties);
-            
+
             // Handle vendor-specific locations
             resolveVendorLocations(properties);
-            
+
             LOGGER.log(Level.FINE, "Property resolution completed. Total properties: {0}", properties.size());
             return properties;
-            
+
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error during property resolution", e);
             // Return safe defaults on error
@@ -100,7 +99,7 @@ public class SpringBootPropertyResolver {
             return safeDefaults;
         }
     }
-    
+
     /**
      * Resolve JBoss/WildFly expression placeholders.
      */
@@ -108,7 +107,7 @@ public class SpringBootPropertyResolver {
         if (value == null || value.trim().isEmpty()) {
             return value;
         }
-        
+
         try {
             // First resolve JBoss expressions ${property:default}
             if (value.contains("${") && !containsMaliciousExpression(value)) {
@@ -121,20 +120,20 @@ public class SpringBootPropertyResolver {
                     // If expression resolution fails, use original value
                 }
             }
-            
+
             // Then resolve vendor placeholders
             if (vendor != null && value.contains("{vendor}")) {
                 value = VENDOR_PATTERN.matcher(value).replaceAll(vendor);
             }
-            
+
             return value;
-            
+
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Unexpected error in placeholder resolution", e);
             return value; // Return original on any unexpected error
         }
     }
-    
+
     /**
      * Apply Spring Boot default values.
      */
@@ -151,7 +150,7 @@ public class SpringBootPropertyResolver {
         properties.putIfAbsent("spring.flyway.sql-migration-separator", "__");
         properties.putIfAbsent("spring.flyway.repeatable-sql-migration-prefix", "R");
     }
-    
+
     /**
      * Handle vendor-specific migration locations.
      */
@@ -161,24 +160,24 @@ public class SpringBootPropertyResolver {
             // Add vendor-specific location if base location exists
             String[] locationArray = locations.split(",");
             StringBuilder newLocations = new StringBuilder();
-            
+
             for (String location : locationArray) {
                 location = location.trim();
                 if (newLocations.length() > 0) {
                     newLocations.append(",");
                 }
                 newLocations.append(location);
-                
+
                 // Add vendor-specific variant
                 if (location.endsWith("/db/migration") || location.endsWith("\\db\\migration")) {
                     newLocations.append(",").append(location).append("/").append(vendor);
                 }
             }
-            
+
             properties.put("spring.flyway.locations", newLocations.toString());
         }
     }
-    
+
     /**
      * Get database vendor from datasource URL.
      */
@@ -186,9 +185,9 @@ public class SpringBootPropertyResolver {
         if (jdbcUrl == null || jdbcUrl.trim().isEmpty()) {
             return null;
         }
-        
+
         String url = jdbcUrl.toLowerCase();
-        
+
         if (url.contains(":h2:")) {
             return "h2";
         } else if (url.contains(":postgresql:")) {
@@ -204,92 +203,92 @@ public class SpringBootPropertyResolver {
         } else if (url.contains(":db2:")) {
             return "db2";
         }
-        
+
         LOGGER.log(Level.FINE, "Unknown database vendor for URL: {0}", jdbcUrl);
         return null;
     }
-    
+
     // ===== Security and Validation Methods =====
-    
+
     private String sanitizePropertyValue(String value) {
         if (value == null) {
             return null;
         }
-        
+
         // Remove potentially dangerous patterns
         String sanitized = value;
         sanitized = SCRIPT_PATTERN.matcher(sanitized).replaceAll("");
         sanitized = SQL_INJECTION_PATTERN.matcher(sanitized).replaceAll("");
         sanitized = JNDI_PATTERN.matcher(sanitized).replaceAll("");
-        
+
         // For file paths, normalize and prevent traversal
         if (isFilePathProperty(value)) {
             sanitized = sanitizeFilePath(sanitized);
         }
-        
+
         // Log if sanitization was needed
         if (!value.equals(sanitized)) {
-            LOGGER.log(Level.WARNING, "Property value was sanitized for security. Original length: {0}, Sanitized length: {1}", 
-                new Object[]{value.length(), sanitized.length()});
+            LOGGER.log(Level.WARNING, "Property value was sanitized for security. Original length: {0}, Sanitized length: {1}",
+                    new Object[]{value.length(), sanitized.length()});
         }
-        
+
         return sanitized;
     }
-    
+
     private String sanitizeFilePath(String path) {
         if (path == null) {
             return null;
         }
-        
+
         // Remove path traversal attempts
         String sanitized = PATH_TRAVERSAL_PATTERN.matcher(path).replaceAll("");
-        
+
         // Remove command injection attempts
         sanitized = COMMAND_INJECTION_PATTERN.matcher(sanitized).replaceAll("");
-        
+
         return sanitized;
     }
-    
+
     private String sanitizeVendor(String vendor) {
         if (vendor == null) {
             return null;
         }
-        
+
         // Only allow alphanumeric and hyphen for vendor names
         String sanitized = vendor.replaceAll("[^a-zA-Z0-9-]", "");
-        
+
         if (!vendor.equals(sanitized)) {
             LOGGER.log(Level.WARNING, "Vendor name was sanitized: {0} -> {1}", new Object[]{vendor, sanitized});
         }
-        
+
         return sanitized;
     }
-    
+
     private boolean isValidPropertyKey(String key) {
         if (key == null || key.trim().isEmpty()) {
             return false;
         }
-        
+
         // Property keys should only contain alphanumeric, dots, hyphens, and underscores
         return key.matches("^[a-zA-Z0-9._-]+$");
     }
-    
+
     private boolean isValidEnvironmentKey(String key) {
         if (key == null || key.trim().isEmpty()) {
             return false;
         }
-        
+
         // Environment keys should only contain alphanumeric and underscores
         return key.matches("^[A-Z0-9_]+$");
     }
-    
+
     private boolean containsMaliciousExpression(String value) {
         // Check for JNDI injection attempts
         if (JNDI_PATTERN.matcher(value).find()) {
             LOGGER.log(Level.WARNING, "Detected potential JNDI injection attempt");
             return true;
         }
-        
+
         // Check for nested expressions that could cause recursion
         int openCount = 0;
         int closeCount = 0;
@@ -297,33 +296,33 @@ public class SpringBootPropertyResolver {
             if (c == '{') openCount++;
             if (c == '}') closeCount++;
         }
-        
+
         if (openCount != closeCount || openCount > 3) {
             LOGGER.log(Level.WARNING, "Detected potentially malicious expression nesting");
             return true;
         }
-        
+
         return false;
     }
-    
+
     private boolean isFilePathProperty(String value) {
-        return value.contains("/") || value.contains("\\") || 
-               value.startsWith("classpath:") || value.startsWith("filesystem:");
+        return value.contains("/") || value.contains("\\") ||
+                value.startsWith("classpath:") || value.startsWith("filesystem:");
     }
-    
+
     private String maskSensitiveValue(String key, String value) {
         if (key == null || value == null) {
             return value;
         }
-        
+
         // Mask sensitive properties
-        if (key.toLowerCase().contains("password") || 
-            key.toLowerCase().contains("secret") ||
-            key.toLowerCase().contains("token") ||
-            key.toLowerCase().contains("key")) {
+        if (key.toLowerCase().contains("password") ||
+                key.toLowerCase().contains("secret") ||
+                key.toLowerCase().contains("token") ||
+                key.toLowerCase().contains("key")) {
             return "***MASKED***";
         }
-        
+
         return value;
     }
 }

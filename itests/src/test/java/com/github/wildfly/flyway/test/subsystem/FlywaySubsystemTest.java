@@ -26,7 +26,7 @@ public class FlywaySubsystemTest {
     }
 
     @Test
-    public void testSubsystemIsActive() throws Exception {
+    public void testSubsystemIsActive()  {
         // Test will pass if subsystem is active
         assertTrue("Flyway subsystem should be active", true);
     }
@@ -44,7 +44,7 @@ public class FlywaySubsystemTest {
         }
 
         @Override
-        public void tearDown(ManagementClient managementClient, String containerId) throws Exception {
+        public void tearDown(ManagementClient managementClient, String containerId) {
             // Nothing to tear down
         }
     }
