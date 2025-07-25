@@ -14,6 +14,7 @@ import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.operations.common.GenericSubsystemDescribeHandler;
+import org.jboss.as.controller.ReloadRequiredWriteAttributeHandler;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.as.server.AbstractDeploymentChainStep;
 import org.jboss.as.server.DeploymentProcessorTarget;
@@ -58,6 +59,14 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
     
     public Collection<AttributeDefinition> getAttributes() {
         return ATTRIBUTES;
+    }
+    
+    @Override
+    public void registerAttributes(ManagementResourceRegistration resourceRegistration) {
+        // Register the attributes for read/write
+        for (AttributeDefinition attr : ATTRIBUTES) {
+            resourceRegistration.registerReadWriteAttribute(attr, null, new ReloadRequiredWriteAttributeHandler(attr));
+        }
     }
     
     @Override
