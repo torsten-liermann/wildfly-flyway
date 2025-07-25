@@ -22,7 +22,7 @@
         <version.org.flywaydb>11.7.2</version.org.flywaydb>
         <version.org.wildfly>28.0.1.Final</version.org.wildfly>
         <version.org.wildfly.arquillian>5.0.0.Alpha6</version.org.wildfly.arquillian>
-        <version.org.wildfly.core>20.0.1.Final</version.org.wildfly.core>
+        <version.org.wildfly.core>28.0.1.Final</version.org.wildfly.core>
         <version.org.wildfly.common>1.6.0.Final</version.org.wildfly.common>
         <version.jakarta.ee>10.0.0</version.jakarta.ee>
 
