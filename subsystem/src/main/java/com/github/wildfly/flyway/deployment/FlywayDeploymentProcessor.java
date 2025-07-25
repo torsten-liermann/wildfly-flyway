@@ -4,12 +4,19 @@ import com.github.wildfly.flyway.logging.FlywayLogger;
 import com.github.wildfly.flyway.service.FlywayMigrationService;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.sql.DataSource;
+import org.jboss.as.controller.ExpressionResolver;
 import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.controller.services.path.PathManager;
+import org.jboss.dmr.ModelNode;
 import org.jboss.as.ee.component.Attachments;
 import org.jboss.as.ee.component.EEModuleDescription;
 import org.jboss.as.naming.ManagedReferenceFactory;
@@ -24,6 +31,7 @@ import org.jboss.msc.Service;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
+import org.jboss.msc.service.ServiceRegistry;
 import org.jboss.msc.service.ServiceTarget;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
@@ -122,50 +130,124 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
     /**
      * Find the DataSource JNDI name to use.
      * Priority:
-     * 1. spring.flyway.datasource property
-     * 2. spring.flyway.url property (create datasource)
-     * 3. Default datasource
+     * 1. META-INF/flyway.properties in deployment
+     * 2. System properties
+     * 3. Default datasource from subsystem
      */
     private String findDataSourceJndiName(DeploymentUnit deploymentUnit) {
-        // Try to read from META-INF/flyway-test.properties
+        // Load deployment-specific properties
+        Properties flywayProperties = loadFlywayProperties(deploymentUnit);
+        
+        // Check deployment properties first
+        String datasource = flywayProperties.getProperty("spring.flyway.datasource");
+        if (datasource != null && !datasource.trim().isEmpty()) {
+            // Resolve WildFly expressions
+            datasource = resolveExpression(deploymentUnit, datasource);
+            FlywayLogger.infof("Using datasource from META-INF/flyway.properties: %s", datasource);
+            return datasource;
+        }
+        
+        // Check system properties
+        datasource = System.getProperty("spring.flyway.datasource");
+        if (datasource != null) {
+            FlywayLogger.infof("Using datasource from system property: %s", datasource);
+            return datasource;
+        }
+        
+        // Use default
+        FlywayLogger.infof("Using default datasource: %s", DEFAULT_DATASOURCE_JNDI_NAME);
+        return DEFAULT_DATASOURCE_JNDI_NAME;
+    }
+    
+    /**
+     * Load Flyway properties from META-INF/flyway.properties
+     */
+    private Properties loadFlywayProperties(DeploymentUnit deploymentUnit) {
+        Properties properties = new Properties();
+        
         ResourceRoot root = deploymentUnit.getAttachment(org.jboss.as.server.deployment.Attachments.DEPLOYMENT_ROOT);
         if (root != null) {
-            VirtualFile propertiesFile = root.getRoot().getChild("META-INF/flyway-test.properties");
+            VirtualFile propertiesFile = root.getRoot().getChild("META-INF/flyway.properties");
             if (propertiesFile.exists()) {
                 try (InputStream is = propertiesFile.openStream()) {
-                    Properties props = new Properties();
-                    props.load(is);
-                    String datasource = props.getProperty("spring.flyway.datasource");
-                    if (datasource != null && !datasource.trim().isEmpty()) {
-                        FlywayLogger.infof("Using datasource from properties: %s", datasource);
-                        return datasource.trim();
-                    }
+                    properties.load(is);
+                    FlywayLogger.debugf("Loaded %d properties from META-INF/flyway.properties", properties.size());
                 } catch (IOException e) {
-                    FlywayLogger.warnf("Failed to read flyway-test.properties: %s", e.getMessage());
+                    FlywayLogger.warnf("Failed to load META-INF/flyway.properties: %s", e.getMessage());
                 }
             }
         }
         
-        // Check for explicit datasource property
-        String datasourceProperty = System.getProperty("spring.flyway.datasource");
-        if (datasourceProperty != null) {
-            return datasourceProperty;
+        return properties;
+    }
+    
+    /**
+     * Resolve WildFly expressions in property values
+     */
+    private String resolveExpression(DeploymentUnit deploymentUnit, String value) {
+        if (value == null || !value.contains("${")) {
+            return value;
         }
         
-        // Check for JDBC URL (would need to create datasource - not implemented yet)
-        String jdbcUrl = System.getProperty("spring.flyway.url");
-        if (jdbcUrl != null) {
-            FlywayLogger.warn("spring.flyway.url is set but direct JDBC connections are not yet supported. Using default datasource.");
+        try {
+            // Get the expression resolver from the deployment
+            ServiceRegistry registry = deploymentUnit.getServiceRegistry();
+            ExpressionResolver resolver = null;
+            
+            // Try to get resolver from capability
+            CapabilityServiceSupport support = deploymentUnit.getAttachment(
+                    org.jboss.as.server.deployment.Attachments.CAPABILITY_SERVICE_SUPPORT);
+            if (support != null) {
+                try {
+                    ServiceName expressionResolverService = support.getCapabilityServiceName(
+                            "org.wildfly.management.expression-resolver");
+                    ServiceController<?> controller = registry.getService(expressionResolverService);
+                    if (controller != null && controller.getValue() != null) {
+                        resolver = (ExpressionResolver) controller.getValue();
+                    }
+                } catch (Exception e) {
+                    FlywayLogger.debugf("Could not get expression resolver from capability: %s", e.getMessage());
+                }
+            }
+            
+            // If we have a resolver, use it
+            if (resolver != null) {
+                ModelNode node = ModelNode.fromString("\"" + value + "\"");
+                ModelNode resolved = resolver.resolveExpressions(node);
+                return resolved.asString();
+            }
+            
+            // Fallback to simple system property resolution
+            return resolveSystemProperties(value);
+            
+        } catch (Exception e) {
+            FlywayLogger.warnf("Failed to resolve expression '%s': %s", value, e.getMessage());
+            return value;
+        }
+    }
+    
+    /**
+     * Simple fallback for resolving system properties
+     */
+    private String resolveSystemProperties(String value) {
+        Pattern pattern = Pattern.compile("\\$\\{([^:}]+)(?::([^}]+))?\\}");
+        Matcher matcher = pattern.matcher(value);
+        StringBuffer result = new StringBuffer();
+        
+        while (matcher.find()) {
+            String key = matcher.group(1);
+            String defaultValue = matcher.group(2);
+            String replacement = System.getProperty(key);
+            
+            if (replacement == null) {
+                replacement = defaultValue != null ? defaultValue : matcher.group(0);
+            }
+            
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
         }
         
-        // Check deployment for @Resource annotations or persistence.xml
-        EEModuleDescription moduleDescription = deploymentUnit.getAttachment(Attachments.EE_MODULE_DESCRIPTION);
-        if (moduleDescription != null) {
-            // Could analyze for datasource references here
-        }
-        
-        // Use default
-        return DEFAULT_DATASOURCE_JNDI_NAME;
+        matcher.appendTail(result);
+        return result.toString();
     }
     
     /**

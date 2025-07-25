@@ -35,14 +35,14 @@ public class FlywayMigrationErrorTest {
                         "    </datasource>\n" +
                         "</datasources>";
 
-        String flywayProperties =
-                "spring.flyway.enabled=true\n" +
-                        "spring.flyway.datasource=java:jboss/datasources/FlywayErrorTestDS\n";
-
+        String flywayProperties = 
+            "spring.flyway.enabled=true\n" +
+            "spring.flyway.datasource=java:jboss/datasources/FlywayErrorTestDS\n";
+        
         return ShrinkWrap.create(WebArchive.class, "flyway-error-test.war")
                 .addAsResource("db/migration/V1__Faulty_migration.sql", "db/migration/V1__Faulty_migration.sql")
                 .addAsWebInfResource(new StringAsset(datasourceXml), "flyway-error-test-ds.xml")
-                .addAsManifestResource(new StringAsset(flywayProperties), "flyway-test.properties");
+                .addAsManifestResource(new StringAsset(flywayProperties), "flyway.properties");
     }
 
     @Test

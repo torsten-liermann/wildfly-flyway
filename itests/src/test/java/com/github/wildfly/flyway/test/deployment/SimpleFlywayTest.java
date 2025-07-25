@@ -50,7 +50,7 @@ public class SimpleFlywayTest {
         return ShrinkWrap.create(WebArchive.class, "simple-flyway-test.war")
                 .addAsResource("db/migration/V100__Simple_Test.sql", "db/migration/V100__Simple_Test.sql")
                 .addAsWebInfResource(new StringAsset(datasourceXml), "simple-flyway-test-ds.xml")
-                .addAsManifestResource(new StringAsset(flywayProperties), "flyway-test.properties")
+                .addAsManifestResource(new StringAsset(flywayProperties), "flyway.properties")
                 .addClass(SimpleFlywayTest.class);
     }
 

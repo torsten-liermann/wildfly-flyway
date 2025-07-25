@@ -57,7 +57,7 @@ public class FlywayMigrationTest {
                 .addAsResource("db/migration/V1__Create_person_table.sql", "db/migration/V1__Create_person_table.sql")
                 .addAsResource("db/migration/V2__Add_people.sql", "db/migration/V2__Add_people.sql")
                 .addAsWebInfResource(new StringAsset(datasourceXml), "flyway-migration-test-ds.xml")
-                .addAsManifestResource(new StringAsset(flywayProperties), "flyway-test.properties")
+                .addAsManifestResource(new StringAsset(flywayProperties), "flyway.properties")
                 .addClass(FlywayMigrationTest.class);
     }
 
