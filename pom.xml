@@ -27,24 +27,14 @@
         <version.jakarta.ee>10.0.0</version.jakarta.ee>
 
         <!-- Plugin versions -->
-        <version.antrun.plugin>3.0.0</version.antrun.plugin>
-        <version.assembly.plugin>3.2.0</version.assembly.plugin>
-        <version.compiler.plugin>3.8.1</version.compiler.plugin>
-        <version.dependency.plugin>3.1.2</version.dependency.plugin>
-        <version.exec.plugin>1.6.0</version.exec.plugin>
-        <version.gmaven.plugin>2.1.1</version.gmaven.plugin>
-        <version.gpg.plugin>1.6</version.gpg.plugin>
-        <version.license.plugin>2.0.0</version.license.plugin>
-        <version.javadoc.plugin>3.2.0</version.javadoc.plugin>
-        <version.release.plugin>3.0.0-M1</version.release.plugin>
+        <version.compiler.plugin>3.14.0</version.compiler.plugin>
         <version.galleon.plugin>5.1.0.Final</version.galleon.plugin>
-        <version.resources.plugin>3.2.0</version.resources.plugin>
-        <version.source.plugin>3.2.0</version.source.plugin>
+        <version.resources.plugin>3.3.1</version.resources.plugin>
         <version.surefire.plugin>3.5.3</version.surefire.plugin>
         <version.wildfly.galleon.plugin>6.4.0.Final</version.wildfly.galleon.plugin>
-        <version.flatten.plugin>1.7.0</version.flatten.plugin>
+        <version.flatten.plugin>1.7.1</version.flatten.plugin>
+        <version.deploy.plugin>3.1.4</version.deploy.plugin>
         <version.org.slf4j>1.7.30</version.org.slf4j>
-        <version.failsafe.plugin>3.5.3</version.failsafe.plugin>
     </properties>
 
     <scm>
@@ -210,34 +200,11 @@
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <artifactId>maven-antrun-plugin</artifactId>
-                    <version>${version.antrun.plugin}</version>
-                </plugin>
-                <plugin>
-                    <artifactId>maven-assembly-plugin</artifactId>
-                    <version>${version.assembly.plugin}</version>
-                </plugin>
-                <plugin>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${version.compiler.plugin}</version>
                     <configuration>
                         <source>17</source>
                         <target>17</target>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <artifactId>maven-dependency-plugin</artifactId>
-                    <version>${version.dependency.plugin}</version>
-                </plugin>
-                <plugin>
-                    <artifactId>maven-release-plugin</artifactId>
-                    <version>${version.release.plugin}</version>
-                    <configuration>
-                        <arguments>-Dgpg.passphrase=${gpg.passphrase}</arguments>
-                        <tagNameFormat>@{project.version}</tagNameFormat>
-                        <releaseProfiles>release</releaseProfiles>
-                        <autoVersionSubmodules>true</autoVersionSubmodules>
-                        <preparationGoals>clean install</preparationGoals>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -247,40 +214,6 @@
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${version.surefire.plugin}</version>
-                </plugin>
-                <plugin>
-                    <artifactId>maven-failsafe-plugin</artifactId>
-                    <version>${version.failsafe.plugin}</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.codehaus.gmaven</groupId>
-                    <artifactId>groovy-maven-plugin</artifactId>
-                    <version>${version.gmaven.plugin}</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>exec-maven-plugin</artifactId>
-                    <version>${version.exec.plugin}</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>license-maven-plugin</artifactId>
-                    <version>${version.license.plugin}</version>
-                    <configuration>
-                        <organizationName>WildFly Team</organizationName>
-                        <licenseName>apache_v2</licenseName>
-                        <inceptionYear>2025</inceptionYear>
-                        <failOnMissingHeader>true</failOnMissingHeader>
-                        <roots>
-                            <root>src</root>
-                        </roots>
-                        <excludes>
-                            <exclude>**/changelogs/*</exclude>
-                            <excludes>**/config/*.xml</excludes>
-                            <excludes>**/modules/**/module.xml</excludes>
-                            <excludes>**/*.template</excludes>
-                        </excludes>
-                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.jboss.galleon</groupId>
@@ -308,6 +241,22 @@
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>flatten-maven-plugin</artifactId>
                     <version>${version.flatten.plugin}</version>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>${version.deploy.plugin}</version>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <version>3.1.4</version>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.4.2</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -340,57 +289,4 @@
         </plugins>
     </build>
 
-    <profiles>
-        <profile>
-            <id>release</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>${version.gpg.plugin}</version>
-                        <configuration>
-                            <passphrase>${gpg.passphrase}</passphrase>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <artifactId>maven-source-plugin</artifactId>
-                        <version>${version.source.plugin}</version>
-                        <executions>
-                            <execution>
-                                <id>attach-sources</id>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>${version.javadoc.plugin}</version>
-                        <configuration>
-                            <additionalparam>-Xdoclint:none</additionalparam>
-                            <detectJavaApiLink>false</detectJavaApiLink>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>attach-javadocs</id>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>
