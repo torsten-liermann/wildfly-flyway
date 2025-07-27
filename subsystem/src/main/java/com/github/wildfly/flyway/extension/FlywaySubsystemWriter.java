@@ -36,6 +36,37 @@ final class FlywaySubsystemWriter implements XMLStreamConstants, XMLElementWrite
             }
         }
         
+        // Write baseline-on-migrate attribute if defined and not default
+        if (node.hasDefined("baseline-on-migrate") && node.get("baseline-on-migrate").asBoolean()) {
+            writer.writeAttribute("baseline-on-migrate", "true");
+        }
+        
+        // Write clean-disabled attribute if defined and not default
+        if (node.hasDefined("clean-disabled") && !node.get("clean-disabled").asBoolean()) {
+            writer.writeAttribute("clean-disabled", "false");
+        }
+        
+        // Write validate-on-migrate attribute if defined and not default
+        if (node.hasDefined("validate-on-migrate") && !node.get("validate-on-migrate").asBoolean()) {
+            writer.writeAttribute("validate-on-migrate", "false");
+        }
+        
+        // Write locations attribute if defined and not default
+        if (node.hasDefined("locations")) {
+            String locations = node.get("locations").asString();
+            if (!"classpath:db/migration".equals(locations)) {
+                writer.writeAttribute("locations", locations);
+            }
+        }
+        
+        // Write table attribute if defined and not default
+        if (node.hasDefined("table")) {
+            String table = node.get("table").asString();
+            if (!"flyway_schema_history".equals(table)) {
+                writer.writeAttribute("table", table);
+            }
+        }
+        
         writer.writeEndElement();
     }
 }

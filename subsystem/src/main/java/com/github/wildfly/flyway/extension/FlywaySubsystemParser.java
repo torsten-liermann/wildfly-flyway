@@ -42,6 +42,16 @@ final class FlywaySubsystemParser implements XMLStreamConstants, XMLElementReade
                 subsystemAdd.get("enabled").set(attrValue);
             } else if ("default-datasource".equals(attrName)) {
                 subsystemAdd.get("default-datasource").set(attrValue);
+            } else if ("baseline-on-migrate".equals(attrName)) {
+                subsystemAdd.get("baseline-on-migrate").set(attrValue);
+            } else if ("clean-disabled".equals(attrName)) {
+                subsystemAdd.get("clean-disabled").set(attrValue);
+            } else if ("validate-on-migrate".equals(attrName)) {
+                subsystemAdd.get("validate-on-migrate").set(attrValue);
+            } else if ("locations".equals(attrName)) {
+                subsystemAdd.get("locations").set(attrValue);
+            } else if ("table".equals(attrName)) {
+                subsystemAdd.get("table").set(attrValue);
             }
         }
         

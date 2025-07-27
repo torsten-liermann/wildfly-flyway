@@ -116,6 +116,12 @@
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <org.jboss.logging.provider>jboss</org.jboss.logging.provider>
                     </systemPropertyVariables>
+                    <environmentVariables>
+                        <!-- Environment variables for testing expression resolution -->
+                        <FLYWAY_TEST_ENABLED>true</FLYWAY_TEST_ENABLED>
+                        <FLYWAY_TEST_DATASOURCE>java:jboss/datasources/TestEnvDS</FLYWAY_TEST_DATASOURCE>
+                        <FLYWAY_TEST_LOCATIONS>classpath:db/test</FLYWAY_TEST_LOCATIONS>
+                    </environmentVariables>
                 </configuration>
             </plugin>
         </plugins>

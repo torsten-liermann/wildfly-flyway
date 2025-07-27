@@ -4,13 +4,16 @@
         <artifact name="${com.github.wildfly.flyway:wildfly-flyway-subsystem}"/>
     </resources>
     <dependencies>
+        <module name="java.naming"/>
         <module name="java.sql"/>
         <module name="org.flywaydb.core"/>
         <module name="org.jboss.as.controller"/>
         <module name="org.jboss.as.ee"/>
         <module name="org.jboss.as.naming"/>
         <module name="org.jboss.as.server"/>
+        <module name="org.jboss.dmr"/>
         <module name="org.jboss.logging"/>
+        <module name="org.jboss.metadata.common"/>
         <module name="org.jboss.modules"/>
         <module name="org.jboss.msc"/>
         <module name="org.jboss.staxmapper"/>

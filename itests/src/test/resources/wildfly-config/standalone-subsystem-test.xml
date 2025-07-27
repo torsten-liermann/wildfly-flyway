@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<server xmlns="urn:jboss:domain:14.0">
+    <extensions>
+        <extension module="com.github.wildfly.flyway"/>
+    </extensions>
+    
+    <subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+               enabled="true"
+               default-datasource="java:jboss/datasources/SubsystemTestDS"
+               baseline-on-migrate="true"
+               clean-disabled="true"
+               validate-on-migrate="true"
+               locations="classpath:db/migration"
+               table="flyway_schema_history"/>
+</server>

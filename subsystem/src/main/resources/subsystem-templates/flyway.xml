@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WildFly Flyway Subsystem - Default Configuration Template
+  
+  This configuration uses environment variables for cloud-native deployments.
+  All attributes support WildFly expression resolution.
+-->
+<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+           enabled="${env.FLYWAY_ENABLED:true}"
+           default-datasource="${env.FLYWAY_DATASOURCE:}"
+           baseline-on-migrate="${env.FLYWAY_BASELINE_ON_MIGRATE:false}"
+           clean-disabled="${env.FLYWAY_CLEAN_DISABLED:true}"
+           validate-on-migrate="${env.FLYWAY_VALIDATE_ON_MIGRATE:true}"
+           locations="${env.FLYWAY_LOCATIONS:classpath:db/migration}"
+           table="${env.FLYWAY_TABLE:flyway_schema_history}"/>
