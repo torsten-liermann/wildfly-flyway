@@ -43,8 +43,49 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
             .setRestartAllServices()
             .build();
     
+    static final AttributeDefinition BASELINE_ON_MIGRATE = SimpleAttributeDefinitionBuilder
+            .create("baseline-on-migrate", ModelType.BOOLEAN)
+            .setDefaultValue(ModelNode.FALSE)
+            .setRequired(false)
+            .setAllowExpression(true)
+            .setRestartAllServices()
+            .build();
+    
+    static final AttributeDefinition CLEAN_DISABLED = SimpleAttributeDefinitionBuilder
+            .create("clean-disabled", ModelType.BOOLEAN)
+            .setDefaultValue(ModelNode.TRUE)
+            .setRequired(false)
+            .setAllowExpression(true)
+            .setRestartAllServices()
+            .build();
+    
+    static final AttributeDefinition VALIDATE_ON_MIGRATE = SimpleAttributeDefinitionBuilder
+            .create("validate-on-migrate", ModelType.BOOLEAN)
+            .setDefaultValue(ModelNode.TRUE)
+            .setRequired(false)
+            .setAllowExpression(true)
+            .setRestartAllServices()
+            .build();
+    
+    static final AttributeDefinition LOCATIONS = SimpleAttributeDefinitionBuilder
+            .create("locations", ModelType.STRING)
+            .setDefaultValue(new ModelNode("classpath:db/migration"))
+            .setRequired(false)
+            .setAllowExpression(true)
+            .setRestartAllServices()
+            .build();
+    
+    static final AttributeDefinition TABLE = SimpleAttributeDefinitionBuilder
+            .create("table", ModelType.STRING)
+            .setDefaultValue(new ModelNode("flyway_schema_history"))
+            .setRequired(false)
+            .setAllowExpression(true)
+            .setRestartAllServices()
+            .build();
+    
     private static final Collection<AttributeDefinition> ATTRIBUTES = Collections.unmodifiableList(
-            Arrays.asList(ENABLED, DEFAULT_DATASOURCE));
+            Arrays.asList(ENABLED, DEFAULT_DATASOURCE, BASELINE_ON_MIGRATE, CLEAN_DISABLED, 
+                    VALIDATE_ON_MIGRATE, LOCATIONS, TABLE));
     
     FlywaySubsystemDefinition() {
         super(FlywayExtension.SUBSYSTEM_PATH,

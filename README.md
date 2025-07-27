@@ -1,283 +1,318 @@
-# WildFly Flyway Subsystem - Developer Guide
+# WildFly Flyway Subsystem
 
 [![CI](https://github.com/torsten-liermann/wildfly-flyway/actions/workflows/ci.yml/badge.svg)](https://github.com/torsten-liermann/wildfly-flyway/actions/workflows/ci.yml)
 
-A WildFly subsystem that integrates Flyway database migrations into the application server's deployment lifecycle.
+Automatic database migration for Java EE applications deployed to WildFly.
 
-## Table of Contents
+## Overview
 
-- [Architecture](#architecture)
-- [Setting up the Development Environment](#setting-up-the-development-environment)
-- [Project Structure](#project-structure)
-- [Configuration Mechanism](#configuration-mechanism)
-- [Development Guide](#development-guide)
-- [Testing](#testing)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
+The WildFly Flyway subsystem integrates [Flyway](https://flywaydb.org/) database migrations into your application server. When you deploy an application with SQL migration scripts, they are automatically executed against your configured datasource.
 
-## Architecture
+**Key Features:**
+- Zero application code required - just add SQL scripts
+- Automatic migration on deployment
+- Spring Boot compatible configuration
+- Full WildFly expression resolution for environment variables and system properties
+- Three-tier configuration hierarchy for maximum flexibility
+- Safe defaults for production
 
-### Key Design Principles
+## Quick Start
 
-- **Zero Configuration**: Automatic migration discovery in standard locations
-- **Spring Boot Compatibility**: Uses `spring.flyway.*` property naming conventions
-- **Deployment Isolation**: Each deployment has its own migration configuration
-- **Production Ready**: Clean operations disabled by default, comprehensive input validation
-- **WildFly Native**: Full integration with management model and lifecycle
+### 1. Install the Subsystem
 
-### Core Components
-
-```
-wildfly-flyway/
-├── subsystem/              # Core subsystem implementation
-│   ├── extension/          # FlywayExtension - subsystem registration
-│   ├── deployment/         # FlywayDeploymentProcessor - deployment discovery
-│   ├── service/           # FlywayMigrationService - migration execution
-│   ├── config/            # SpringBootPropertyResolver - property handling
-│   └── security/          # SecurityInputValidator - input validation
-├── feature-pack/          # WildFly feature pack for distribution
-└── itests/                # Arquillian integration tests
-```
-
-### Key Classes and Their Responsibilities
-
-- **FlywayExtension**: Registers the subsystem with WildFly
-- **FlywaySubsystemDefinition**: Defines management model attributes
-- **FlywayDeploymentProcessor**: Discovers deployments with migrations, creates migration services
-- **FlywayMigrationService**: MSC service that executes Flyway migrations
-- **SpringBootPropertyResolver**: Maps Spring Boot properties to Flyway configuration
-
-## Setting up the Development Environment
-
-The project uses Arquillian integration tests which require a provisioned WildFly server. The build process handles this automatically.
-
-1. **Build the project:**
-   ```bash
-   mvn clean install
-   ```
-   This command compiles all modules, runs the tests, and provisions a WildFly server instance in `itests/target/wildfly-28.0.1.Final`.
-
-2. **Run specific tests:** To iterate quickly, you can run a single test against the already provisioned server:
-   ```bash
-   mvn test -pl itests -Dtest=SimpleFlywayTest
-   ```
-
-3. **Debug tests:**
-   ```bash
-   mvn test -pl itests -Dmaven.surefire.debug -Dtest=SimpleFlywayTest
-   ```
-   Then connect your debugger to port 5005.
-
-## Project Structure
-
-### Module Dependencies
-
-- **subsystem**: Core implementation, depends on WildFly controller APIs and Flyway
-- **feature-pack**: Galleon feature pack definition for distribution
-- **itests**: Integration tests using Arquillian
-
-### Key Files
-
-```
-subsystem/src/main/
-├── java/.../
-│   ├── extension/FlywayExtension.java          # Entry point
-│   ├── deployment/FlywayDeploymentProcessor.java # Deployment handling
-│   └── config/SpringBootPropertyResolver.java   # Property resolution
-└── resources/
-    ├── LocalDescriptions.properties             # Management descriptions
-    └── subsystem-templates/flyway.xml          # Default configuration
-```
-
-## Configuration Mechanism
-
-The subsystem is primarily configured via a `flyway.properties` file within the deployment. It emulates Spring Boot's property resolution.
-
-- **Property Source:** Properties are read from `META-INF/flyway.properties` in the deployment's classpath. System properties can override.
-- **Resolution Logic:** The core logic resides in `SpringBootPropertyResolver.java`. This class handles default values, expression resolution (`${...}`), and vendor-specific paths (`{vendor}`).
-- **Activation:** Migration is activated for a deployment if a datasource is configured (e.g., via `spring.flyway.datasource`) AND either migration scripts are found in a default location (like `db/migration`) or `spring.flyway.enabled` is explicitly set to true.
-
-### Configuration Priority
-
-1. `META-INF/flyway.properties` in deployment
-2. System properties
-3. Default datasource (`java:jboss/datasources/ExampleDS`)
-
-## Development Guide
-
-This guide covers key extension points of the subsystem.
-
-### Adding a New Configuration Property
-
-To add support for a new Flyway property (e.g., `spring.flyway.new-property`):
-
-1. **Register the Property:** Add the new property to the `PROPERTY_MAPPINGS` map in `SpringBootPropertyResolver.java`:
-   ```java
-   PROPERTY_MAPPINGS.put("spring.flyway.new-property", "newProperty");
-   ```
-
-2. **Apply the Configuration:** In `FlywayMigrationService.java`, within the `applyConfiguration` method, add logic to apply the resolved property:
-   ```java
-   // In applyConfiguration()
-   String newValue = resolvedProperties.get("newProperty");
-   if (newValue != null) {
-       configuration.newFlywayMethod(newValue);
-   }
-   ```
-
-3. **Add a Test:** Create a new integration test in the `itests` module to verify that the new property is correctly applied.
-
-### Modifying the Management Model
-
-The subsystem's management model is defined in `FlywaySubsystemDefinition.java`.
-
-- To add a new attribute, edit the `AttributeDefinition` list
-- XML parsing logic is in `FlywaySubsystemParser.java`
-- Test changes with `FlywaySubsystemTestCase.java`
-
-### Understanding the Deployment Process
-
-1. **Discovery**: `FlywayDeploymentProcessor.hasMigrations()` checks for migration files
-2. **Service Creation**: `createMigrationService()` creates an MSC service for the deployment
-3. **Execution**: `FlywayMigrationService.start()` executes migrations during deployment
-4. **Cleanup**: Service stops when deployment is undeployed
-
-### Security Considerations
-
-All user input must be validated using `SecurityInputValidator`:
-
-```java
-String validated = SecurityInputValidator.validateDataSourceJndiName(input);
-```
-
-Key security features:
-- Clean operations disabled by default
-- JNDI name validation
-- SQL script path validation
-- Input sanitization for all properties
-
-## Testing
-
-### Test Structure
-
-```
-itests/src/test/
-├── java/.../test/
-│   ├── deployment/           # Deployment-based tests
-│   │   ├── SimpleFlywayTest.java
-│   │   ├── FlywayMigrationTest.java
-│   │   └── FlywayMigrationErrorTest.java
-│   └── subsystem/           # Management model tests
-│       └── FlywaySubsystemTest.java
-└── resources/
-    └── db/migration/        # Test migration scripts
-```
-
-### Writing Integration Tests
-
-```java
-@RunWith(Arquillian.class)
-public class MyFlywayTest {
-    @Deployment
-    public static Archive<?> deployment() {
-        String datasourceXml = """
-            <datasources xmlns="urn:jboss:domain:datasources:7.0">
-                <datasource jndi-name="java:jboss/datasources/TestDS">
-                    <!-- datasource configuration -->
-                </datasource>
-            </datasources>
-            """;
-            
-        String flywayProperties = """
-            spring.flyway.enabled=true
-            spring.flyway.datasource=java:jboss/datasources/TestDS
-            """;
-        
-        return ShrinkWrap.create(WebArchive.class, "test.war")
-            .addAsResource("db/migration/V1__Init.sql")
-            .addAsWebInfResource(new StringAsset(datasourceXml), "test-ds.xml")
-            .addAsResource(new StringAsset(flywayProperties), "META-INF/flyway.properties");
-    }
-    
-    @Test
-    public void testMigration() {
-        // Verify migration execution
-    }
-}
-```
-
-### Running Specific Test Suites
+Download and install the feature pack into your WildFly installation:
 
 ```bash
-# Unit tests only
-mvn test -pl subsystem
+# Using Galleon
+galleon.sh install com.github.wildfly.flyway:wildfly-flyway-feature-pack:1.0.0
+```
 
-# Integration tests only
-mvn test -pl itests
+### 2. Configure WildFly
 
-# All tests
-mvn clean verify
+Add the subsystem to your `standalone.xml`:
+
+```xml
+<extension module="com.github.wildfly.flyway"/>
+
+<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"/>
+```
+
+### 3. Add Migration Scripts
+
+Create SQL migration scripts in your application at `src/main/resources/db/migration/`:
+
+```sql
+-- V1__Create_person_table.sql
+CREATE TABLE person (
+    id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+-- V2__Add_email_column.sql
+ALTER TABLE person ADD COLUMN email VARCHAR(255);
+```
+
+### 4. Configure Your Application
+
+Create `src/main/resources/META-INF/flyway.properties`:
+
+```properties
+spring.flyway.datasource=java:jboss/datasources/MyAppDS
+```
+
+**Note:** Replace `MyAppDS` with your actual datasource JNDI name. Never use ExampleDS in production!
+
+### 5. Deploy
+
+Deploy your application - migrations run automatically!
+
+## Configuration Guide
+
+### Configuration Hierarchy
+
+The subsystem uses a three-level configuration hierarchy:
+
+1. **Base Configuration**: Subsystem configuration in `standalone.xml` provides defaults for ALL deployments
+2. **Application Overrides**: Properties in `META-INF/flyway.properties` override specific subsystem defaults
+3. **Datasource Resolution**: 
+   - From application properties (highest priority)
+   - From subsystem `default-datasource`
+   - Auto-discovery (only if explicitly enabled)
+
+### Application Configuration
+
+Configure Flyway per application using `META-INF/flyway.properties`:
+
+```properties
+# Required - specify which datasource to use
+spring.flyway.datasource=java:jboss/datasources/MyDS
+
+# Optional settings with defaults
+spring.flyway.baseline-on-migrate=false
+spring.flyway.clean-disabled=true
+spring.flyway.validate-on-migrate=true
+spring.flyway.locations=classpath:db/migration
+spring.flyway.table=flyway_schema_history
+
+# Both namespaces supported (flyway.* takes precedence)
+flyway.datasource=java:jboss/datasources/MyDS
+```
+
+### Subsystem Configuration
+
+Configure global defaults in `standalone.xml` that apply to ALL deployments:
+
+```xml
+<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+           enabled="true"
+           default-datasource="java:jboss/datasources/DefaultDS"
+           baseline-on-migrate="false"
+           clean-disabled="true"
+           validate-on-migrate="true"
+           locations="classpath:db/migration"
+           table="flyway_schema_history"/>
+```
+
+**Important:** 
+- These settings provide the base configuration for all deployments
+- Applications inherit these defaults automatically
+- Applications can override individual settings in their `flyway.properties`
+- If `default-datasource` is set, applications don't need to specify a datasource (unless they want a different one)
+
+### Environment Variables and Expression Resolution
+
+The subsystem supports full WildFly expression resolution, including environment variables and system properties:
+
+#### In Subsystem Configuration (standalone.xml)
+
+```xml
+<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+           enabled="${env.FLYWAY_ENABLED:true}"
+           default-datasource="${env.FLYWAY_DATASOURCE:}"
+           baseline-on-migrate="${env.FLYWAY_BASELINE_ON_MIGRATE:false}"
+           clean-disabled="${env.FLYWAY_CLEAN_DISABLED:true}"
+           locations="${env.FLYWAY_LOCATIONS:classpath:db/migration}"/>
+```
+
+#### In Deployment Properties (META-INF/flyway.properties)
+
+```properties
+# Environment variable expressions with defaults
+spring.flyway.datasource=${env.FLYWAY_DATASOURCE:java:jboss/datasources/DefaultDS}
+spring.flyway.baseline-on-migrate=${env.FLYWAY_BASELINE:false}
+spring.flyway.locations=${env.FLYWAY_LOCATIONS:classpath:db/migration}
+
+# System property expressions
+spring.flyway.table=${flyway.table:flyway_schema_history}
+spring.flyway.validate-on-migrate=${validate.migrations:true}
+```
+
+#### Setting Environment Variables
+
+```bash
+# Set environment variables before starting WildFly
+export FLYWAY_ENABLED=true
+export FLYWAY_DATASOURCE=java:jboss/datasources/PostgresDS
+export FLYWAY_BASELINE_ON_MIGRATE=true
+export FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/patches
+
+# Or use system properties
+./bin/standalone.sh -Dflyway.table=schema_version -Dvalidate.migrations=false
+```
+
+**Expression Syntax:**
+- `${env.VARIABLE_NAME}` - Environment variable (fails if not set)
+- `${env.VARIABLE_NAME:defaultValue}` - Environment variable with default
+- `${sys.PROPERTY_NAME:defaultValue}` - System property with default  
+- `${PROPERTY_NAME:defaultValue}` - System property (shorthand)
+
+**Important:** Expression resolution works in both subsystem configuration and deployment properties files, providing maximum flexibility for cloud-native deployments.
+
+### Configuration Properties Reference
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `datasource` | JNDI name of the datasource | *(required)* |
+| `enabled` | Enable/disable Flyway | `true` |
+| `baseline-on-migrate` | Create baseline for existing databases | `false` |
+| `clean-disabled` | Disable destructive clean operations | `true` |
+| `validate-on-migrate` | Validate migrations before applying | `true` |
+| `locations` | Where to find migration scripts | `classpath:db/migration` |
+| `table` | Name of schema history table | `flyway_schema_history` |
+
+## Common Use Cases
+
+### Central Configuration for All Applications
+
+Configure defaults in `standalone.xml` once:
+
+```xml
+<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+           default-datasource="${env.DB_DATASOURCE:java:jboss/datasources/PostgresDS}"
+           baseline-on-migrate="${env.DB_BASELINE:false}"
+           locations="${env.DB_MIGRATION_PATH:classpath:db/migration}"/>
+```
+
+Now all applications automatically use these settings without needing their own configuration!
+
+### Application-Specific Override
+
+Application needs a different datasource than the subsystem default:
+
+```properties
+# META-INF/flyway.properties
+spring.flyway.datasource=java:jboss/datasources/AppSpecificDS
+# All other settings inherited from subsystem
+```
+
+### Multiple Environments
+
+Use environment-specific datasources:
+
+```properties
+# META-INF/flyway.properties
+spring.flyway.datasource=${env.DB_JNDI}
+spring.flyway.baseline-on-migrate=${env.DB_BASELINE_ON_MIGRATE:false}
+spring.flyway.locations=${env.DB_MIGRATION_PATH:classpath:db/migration}
+```
+
+Or configure in the subsystem with required environment variables:
+
+```xml
+<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+           default-datasource="${env.DB_DATASOURCE}"/>
+```
+
+This ensures the datasource MUST be explicitly configured via environment variable.
+
+### Existing Database
+
+Enable baseline for databases with existing schema:
+
+```properties
+spring.flyway.baseline-on-migrate=true
+spring.flyway.baseline-version=0
+```
+
+### Database-Specific Migrations
+
+Use vendor placeholders for database-specific SQL:
+
+```properties
+spring.flyway.locations=classpath:db/migration,classpath:db/migration/{vendor}
+```
+
+Directory structure:
+```
+db/migration/
+├── V1__Common_schema.sql
+├── postgresql/
+│   └── V2__PostgreSQL_specific.sql
+└── mysql/
+    └── V2__MySQL_specific.sql
+```
+
+### Disable for Specific Deployment
+
+```properties
+# META-INF/flyway.properties
+spring.flyway.enabled=false
+```
+
+## Monitoring and Operations
+
+### Check Migration Status
+
+Use JBoss CLI to check the subsystem status:
+
+```bash
+/subsystem=flyway:read-resource(include-runtime=true)
+```
+
+### View Logs
+
+Flyway operations are logged to the server log:
+
+```
+INFO  [com.github.wildfly.flyway] Flyway enabled for deployment 'myapp.war' using datasource 'java:jboss/datasources/MyDS' from deployment properties
+INFO  [com.github.wildfly.flyway] Found 3 pending migrations for deployment: myapp.war
+INFO  [com.github.wildfly.flyway] Successfully executed 3 migrations for deployment: myapp.war
 ```
 
 ## Troubleshooting
 
-### Common Development Issues
+### No Migrations Running
 
-1. **Test failures due to port conflicts**
-   - The test server uses ports 18080 (HTTP) and 19990 (management)
-   - Check `arquillian.xml` for port configuration
+1. **Check if migrations exist**: Ensure files are in `db/migration/` 
+2. **Verify datasource**: Check JNDI name matches exactly
+3. **Check enabled status**: Verify not disabled in properties
+4. **Review logs**: Look for "No Flyway datasource configured"
 
-2. **ClassLoader issues in tests**
-   - Ensure test resources are in the correct location
-   - Use deployment classloader for resource loading
+### Migration Failures
 
-3. **Service dependency failures**
-   - Check datasource JNDI names match exactly
-   - Verify service dependencies in `FlywayDeploymentProcessor`
-
-### Debugging Tips
-
-1. **Enable debug logging:**
+1. **Check SQL syntax**: Test scripts manually first
+2. **Verify permissions**: Ensure datasource user has DDL permissions
+3. **Check history table**: May need manual cleanup after failures
+4. **Enable debug logging**: Add to `standalone.xml`:
    ```xml
    <logger category="com.github.wildfly.flyway">
        <level name="DEBUG"/>
    </logger>
    ```
 
-2. **Check service status:**
-   ```
-   /subsystem=service-container:dump-services()
-   ```
+### Configuration Not Applied
 
-3. **Arquillian debugging:**
-   - Server logs: `itests/target/wildfly-28.0.1.Final/standalone/log/server.log`
-   - Set `allowConnectingToRunningServer=false` in `arquillian.xml` for isolated tests
+Remember the precedence order:
+1. Application properties override everything
+2. Subsystem configuration provides defaults
+3. Both `flyway.*` and `spring.flyway.*` properties work
 
-## Contributing
+## Security Considerations
 
-### Code Style
-
-- Standard Java conventions
-- Meaningful variable names
-- Javadoc for public APIs
-- Keep methods focused and testable
-
-### Pull Request Process
-
-1. Fork and create a feature branch
-2. Write tests for new functionality
-3. Ensure all tests pass: `mvn clean verify`
-4. Update documentation if needed
-5. Submit PR with clear description
-
-### Commit Message Format
-
-```
-feat: Add support for custom migration loaders
-fix: Resolve datasource lookup timing issue
-test: Add test for multi-schema migrations
-docs: Update developer guide
-```
+- **Clean operations disabled by default** - protects against accidental data loss
+- **Validation enabled by default** - ensures migration integrity
+- **JNDI names validated** - prevents injection attacks
+- **SQL scripts run with datasource permissions** - ensure appropriate database user
 
 ## License
 
