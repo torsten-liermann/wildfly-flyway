@@ -34,7 +34,7 @@
         <version.wildfly.galleon.plugin>6.4.0.Final</version.wildfly.galleon.plugin>
         <version.flatten.plugin>1.7.1</version.flatten.plugin>
         <version.deploy.plugin>3.1.4</version.deploy.plugin>
-        <version.org.slf4j>1.7.30</version.org.slf4j>
+        <version.org.slf4j>2.0.17</version.org.slf4j>
     </properties>
 
     <scm>
