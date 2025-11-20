@@ -1,14 +1,14 @@
 package com.github.wildfly.flyway.test.subsystem;
 
 import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.junit5.ArquillianExtension;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
@@ -18,9 +18,9 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test that verifies subsystem configuration is properly used as base configuration
@@ -31,7 +31,7 @@ import static org.junit.Assert.fail;
  * 2. Deployment properties override subsystem defaults
  * 3. The datasource can come from subsystem default-datasource
  */
-@RunWith(Arquillian.class)
+@ExtendWith(ArquillianExtension.class)
 public class SubsystemConfigurationTest {
 
     @Deployment
@@ -101,20 +101,20 @@ public class SubsystemConfigurationTest {
             
             // Verify the test table was created
             List<String> tables = getTableNames(metaData);
-            assertTrue("Migration should have created subsystem_config_test table", 
-                     tables.contains("SUBSYSTEM_CONFIG_TEST"));
+            assertTrue(tables.contains("SUBSYSTEM_CONFIG_TEST"),
+                     "Migration should have created subsystem_config_test table");
             
             // Verify Flyway schema history table exists
             // The exact table name depends on subsystem configuration
             boolean hasSchemaHistory = tables.contains("FLYWAY_SCHEMA_HISTORY") || 
                                      tables.contains("flyway_schema_history");
-            assertTrue("Flyway schema history table should exist", hasSchemaHistory);
+            assertTrue(hasSchemaHistory, "Flyway schema history table should exist");
             
             // Verify data was inserted
             try (var stmt = conn.createStatement();
                  var rs = stmt.executeQuery("SELECT COUNT(*) FROM subsystem_config_test")) {
                 assertTrue(rs.next());
-                assertEquals("Should have 1 row inserted", 1, rs.getInt(1));
+                assertEquals(1, rs.getInt(1), "Should have 1 row inserted");
             }
             
         } catch (Exception e) {
@@ -128,7 +128,7 @@ public class SubsystemConfigurationTest {
         // The deployment sets baseline-version=2.0 which should override any subsystem default
         
         // The test passes if deployment succeeds - configuration hierarchy is working
-        assertTrue("Deployment should succeed with property overrides", true);
+        assertTrue(true, "Deployment should succeed with property overrides");
         
         // We could check logs for the actual baseline version used, but that would
         // require a more complex test setup

@@ -1,14 +1,13 @@
 package com.github.wildfly.flyway.test.deployment;
 
 import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.junit5.ArquillianExtension;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
@@ -16,13 +15,13 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Test that Flyway properties work with both "spring.flyway.*" and "flyway.*" prefixes
  * using deployment properties with baseline configuration.
  */
-@RunWith(Arquillian.class)
+@ExtendWith(ArquillianExtension.class)
 public class FlywayPropertyPrefixSystemPropertyTest {
 
     @Deployment
@@ -88,7 +87,7 @@ public class FlywayPropertyPrefixSystemPropertyTest {
              ResultSet rs = ps.executeQuery()) {
             
             assertTrue(rs.next());
-            assertTrue("Should have migration records", rs.getInt(1) > 0);
+            assertTrue(rs.getInt(1) > 0, "Should have migration records");
         }
     }
 }

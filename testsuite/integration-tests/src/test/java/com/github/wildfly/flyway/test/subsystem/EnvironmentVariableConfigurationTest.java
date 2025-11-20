@@ -1,14 +1,14 @@
 package com.github.wildfly.flyway.test.subsystem;
 
 import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.junit5.ArquillianExtension;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
@@ -18,9 +18,9 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test that verifies environment variable expression resolution in deployment properties.
@@ -33,7 +33,7 @@ import static org.junit.Assert.fail;
  * In a cloud deployment, you can set environment variables in your container/kubernetes
  * configuration and reference them in your flyway.properties file.
  */
-@RunWith(Arquillian.class)
+@ExtendWith(ArquillianExtension.class)
 public class EnvironmentVariableConfigurationTest {
 
     @Deployment
@@ -94,15 +94,15 @@ public class EnvironmentVariableConfigurationTest {
             
             // Verify the test table was created
             List<String> tables = getTableNames(metaData);
-            assertTrue("Migration should have created env_var_test table", 
-                     tables.contains("ENV_VAR_TEST"));
+            assertTrue(tables.contains("ENV_VAR_TEST"),
+                     "Migration should have created env_var_test table");
             
             // Verify data was inserted
             try (var stmt = conn.createStatement();
                  var rs = stmt.executeQuery("SELECT config_type FROM env_var_test WHERE id = 1")) {
                 assertTrue(rs.next());
-                assertEquals("Configuration type should be environment-variable", 
-                           "environment-variable", rs.getString(1));
+                assertEquals("environment-variable", rs.getString(1),
+                           "Configuration type should be environment-variable");
             }
             
         } catch (Exception e) {
@@ -120,7 +120,7 @@ public class EnvironmentVariableConfigurationTest {
         // - ${env.FLYWAY_LOCATIONS:classpath:db/migration} -> classpath:db/migration
         
         // If we reach this point, the deployment succeeded with the default values
-        assertTrue("Deployment should succeed with environment variable defaults", true);
+        assertTrue(true, "Deployment should succeed with environment variable defaults");
     }
     
     @Test
@@ -145,7 +145,7 @@ public class EnvironmentVariableConfigurationTest {
         
         // Both approaches support expression resolution!
         
-        assertTrue("Cloud-native pattern is properly documented", true);
+        assertTrue(true, "Cloud-native pattern is properly documented");
     }
     
     private List<String> getTableNames(DatabaseMetaData metaData) throws Exception {
