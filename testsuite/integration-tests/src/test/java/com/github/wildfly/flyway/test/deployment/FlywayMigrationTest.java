@@ -1,7 +1,7 @@
 package com.github.wildfly.flyway.test.deployment;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -12,16 +12,16 @@ import java.util.List;
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
 import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.junit5.ArquillianExtension;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-@RunWith(Arquillian.class)
+@ExtendWith(ArquillianExtension.class)
 public class FlywayMigrationTest {
 
     private static final String TEST_DS = "java:jboss/datasources/FlywayMigrationTestDS";
@@ -78,8 +78,8 @@ public class FlywayMigrationTest {
         }
         
         // Should have flyway_schema_history and PERSON tables
-        assertTrue("Should have flyway_schema_history table", tables.contains("flyway_schema_history"));
-        assertTrue("Should have PERSON table", tables.contains("PERSON"));
+        assertTrue(tables.contains("flyway_schema_history"), "Should have flyway_schema_history table");
+        assertTrue(tables.contains("PERSON"), "Should have PERSON table");
         
         // Check columns in PERSON table
         List<String> columns = new ArrayList<>();
@@ -97,8 +97,8 @@ public class FlywayMigrationTest {
         columns.sort(String::compareTo);
         List<String> expectedColumns = Arrays.asList("id", "first_name", "last_name");
         expectedColumns.sort(String::compareTo);
-        assertEquals("PERSON table should have expected columns", expectedColumns, columns);
-        
+        assertEquals(expectedColumns, columns, "PERSON table should have expected columns");
+
         // Check data was inserted
         int count = 0;
         try (Connection connection = dataSource.getConnection()) {
@@ -109,7 +109,7 @@ public class FlywayMigrationTest {
                 }
             }
         }
-        
-        assertEquals("Should have 3 people in PERSON table", 3, count);
+
+        assertEquals(3, count, "Should have 3 people in PERSON table");
     }
 }

@@ -1,13 +1,13 @@
 package com.github.wildfly.flyway.test.deployment;
 
 import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.junit5.ArquillianExtension;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
@@ -15,13 +15,13 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
-import static org.junit.Assert.*;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test that Flyway properties work with both "spring.flyway.*" and "flyway.*" prefixes.
  */
-@RunWith(Arquillian.class)
+@ExtendWith(ArquillianExtension.class)
 public class FlywayPropertyPrefixTest {
 
     @Deployment
@@ -76,16 +76,16 @@ public class FlywayPropertyPrefixTest {
         
         // First verify the datasource connection
         try (Connection conn = ds.getConnection()) {
-            assertNotNull("Should be able to connect to datasource", conn);
+            assertNotNull(conn, "Should be able to connect to datasource");
         }
         
         // Check if the PERSON table exists and has data
         try (Connection conn = ds.getConnection();
              PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM PERSON");
              ResultSet rs = ps.executeQuery()) {
-            
-            assertTrue("Should have result", rs.next());
-            assertEquals("Should have 2 people", 2, rs.getInt(1));
+
+            assertTrue(rs.next(), "Should have result");
+            assertEquals(2, rs.getInt(1), "Should have 2 people");
         } catch (Exception e) {
             // Log more details about the failure
             fail("Failed to query PERSON table: " + e.getMessage());
@@ -106,7 +106,7 @@ public class FlywayPropertyPrefixTest {
                                  ", description=" + rs.getString("description"));
             }
             
-            assertTrue("Should have migration records", rowCount > 0);
+            assertTrue(rowCount > 0, "Should have migration records");
             
             // If baseline-on-migrate was applied, there should be a baseline record with installed_rank = -1
             // But if there are actual migrations, Flyway might skip the baseline

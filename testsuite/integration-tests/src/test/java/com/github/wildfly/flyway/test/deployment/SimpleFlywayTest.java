@@ -1,6 +1,6 @@
 package com.github.wildfly.flyway.test.deployment;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -8,16 +8,16 @@ import java.sql.ResultSet;
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
 import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.junit5.ArquillianExtension;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-@RunWith(Arquillian.class)
+@ExtendWith(ArquillianExtension.class)
 public class SimpleFlywayTest {
 
     private static final String TEST_DS = "java:jboss/datasources/SimpleFlywayTestDS";
@@ -70,6 +70,6 @@ public class SimpleFlywayTest {
             }
         }
         
-        assertTrue("SIMPLE_TEST table should exist", tableExists);
+        assertTrue(tableExists, "SIMPLE_TEST table should exist");
     }
 }
