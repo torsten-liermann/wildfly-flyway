@@ -115,7 +115,7 @@
     <modules>
         <module>subsystem</module>
         <module>feature-pack</module>
-        <module>itests</module>
+        <module>testsuite</module>
     </modules>
 
     <dependencyManagement>
