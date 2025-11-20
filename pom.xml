@@ -20,19 +20,21 @@
         <version.junit>4.13.1</version.junit>
         <version.org.jboss.arquillian>1.7.0.Final</version.org.jboss.arquillian>
         <version.org.flywaydb>11.7.2</version.org.flywaydb>
-        <version.org.wildfly>28.0.1.Final</version.org.wildfly>
-        <version.org.wildfly.arquillian>5.0.0.Alpha6</version.org.wildfly.arquillian>
-        <version.org.wildfly.core>20.0.1.Final</version.org.wildfly.core>
-        <version.org.wildfly.common>1.6.0.Final</version.org.wildfly.common>
+        <!-- WildFly/JBoss Versions (EAP 8.1 baseline: WildFly 35.0.1.Final) -->
+        <version.wildfly>35.0.1.Final</version.wildfly>
+        <version.wildfly.core>27.0.1.Final</version.wildfly.core>
+        <version.wildfly.common>1.6.0.Final</version.wildfly.common>
+        <version.wildfly.galleon-plugins>7.3.1.Final</version.wildfly.galleon-plugins>
+        <version.wildfly.plugin>5.1.0.Final</version.wildfly.plugin>
+        <version.galleon>6.0.4.Final</version.galleon>
+        <version.wildfly.arquillian>5.0.0.Final</version.wildfly.arquillian>
         <version.jakarta.ee>10.0.0</version.jakarta.ee>
 
         <!-- Plugin versions -->
         <version.compiler.plugin>3.14.0</version.compiler.plugin>
-        <version.galleon.plugin>5.1.0.Final</version.galleon.plugin>
         <version.resources.plugin>3.3.1</version.resources.plugin>
         <version.surefire.plugin>3.5.3</version.surefire.plugin>
-        <version.wildfly.galleon.plugin>6.4.0.Final</version.wildfly.galleon.plugin>
-        <version.flatten.plugin>1.7.1</version.flatten.plugin>
+        <version.flatten.plugin>1.7.3</version.flatten.plugin>
         <version.deploy.plugin>3.1.4</version.deploy.plugin>
         <version.org.slf4j>1.7.30</version.org.slf4j>
     </properties>
@@ -121,14 +123,14 @@
             <dependency>
                 <groupId>org.wildfly.bom</groupId>
                 <artifactId>wildfly-ee</artifactId>
-                <version>${version.org.wildfly}</version>
+                <version>${version.wildfly}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.wildfly</groupId>
                 <artifactId>wildfly-ee-feature-pack-galleon-shared</artifactId>
-                <version>${version.org.wildfly}</version>
+                <version>${version.wildfly}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -174,13 +176,13 @@
             <dependency>
                 <groupId>org.wildfly.arquillian</groupId>
                 <artifactId>wildfly-arquillian-container-managed</artifactId>
-                <version>${version.org.wildfly.arquillian}</version>
+                <version>${version.wildfly.arquillian}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>org.wildfly.arquillian</groupId>
                 <artifactId>wildfly-arquillian-container-remote</artifactId>
-                <version>${version.org.wildfly.arquillian}</version>
+                <version>${version.wildfly.arquillian}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
@@ -218,22 +220,22 @@
                 <plugin>
                     <groupId>org.jboss.galleon</groupId>
                     <artifactId>galleon-maven-plugin</artifactId>
-                    <version>${version.galleon.plugin}</version>
+                    <version>${version.galleon}</version>
                 </plugin>
                 <plugin>
                     <groupId>org.wildfly.galleon-plugins</groupId>
                     <artifactId>wildfly-galleon-maven-plugin</artifactId>
-                    <version>${version.wildfly.galleon.plugin}</version>
+                    <version>${version.wildfly.galleon-plugins}</version>
                     <dependencies>
                         <dependency>
                             <groupId>org.wildfly.core</groupId>
                             <artifactId>wildfly-embedded</artifactId>
-                            <version>${version.org.wildfly.core}</version>
+                            <version>${version.wildfly.core}</version>
                         </dependency>
                         <dependency>
                             <groupId>org.wildfly.common</groupId>
                             <artifactId>wildfly-common</artifactId>
-                            <version>${version.org.wildfly.common}</version>
+                            <version>${version.wildfly.common}</version>
                         </dependency>
                     </dependencies>
                 </plugin>

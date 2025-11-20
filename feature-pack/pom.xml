@@ -20,7 +20,7 @@
         <dependency>
             <groupId>org.wildfly</groupId>
             <artifactId>wildfly-galleon-pack</artifactId>
-            <version>${version.org.wildfly}</version>
+            <version>${version.wildfly}</version>
             <type>zip</type>
         </dependency>
         <dependency>
