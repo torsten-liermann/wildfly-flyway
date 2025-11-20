@@ -20,3 +20,5 @@ Thumbs.db
 # Test databases
 *.db
 *.h2.db
+
+internal/
