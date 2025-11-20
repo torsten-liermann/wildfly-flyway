@@ -1,0 +1,59 @@
+{
+  "project": "wildfly-flyway-production",
+  "description": "Make WildFly Flyway subsystem production-ready",
+  "promptFile": "claude-flow-production-ready.md",
+  "agents": {
+    "count": 8,
+    "types": {
+      "architect": 1,
+      "coder": 3,
+      "tester": 2,
+      "analyst": 1,
+      "coordinator": 1
+    }
+  },
+  "swarm": {
+    "topology": "hierarchical",
+    "strategy": "balanced",
+    "maxConcurrency": 6,
+    "autoSpawn": true
+  },
+  "memory": {
+    "persistent": true,
+    "namespace": "wildfly-flyway-prod",
+    "sharedContext": true
+  },
+  "neural": {
+    "training": true,
+    "patterns": ["testing", "security", "performance", "documentation"],
+    "adaptiveThreshold": 0.8
+  },
+  "tasks": {
+    "priorities": {
+      "critical": ["testing", "security"],
+      "high": ["features", "operations", "documentation", "integration"],
+      "medium": ["build", "performance"]
+    },
+    "parallelization": {
+      "testing": ["unit", "integration", "performance"],
+      "documentation": ["api", "user-guide", "migration"],
+      "features": ["monitoring", "multi-datasource", "callbacks"]
+    }
+  },
+  "quality": {
+    "coverage": 80,
+    "sonarGate": true,
+    "securityScan": true,
+    "performanceBenchmark": true
+  },
+  "output": {
+    "reports": "./reports",
+    "metrics": "./metrics",
+    "documentation": "./docs"
+  },
+  "hooks": {
+    "pre-task": "echo 'Starting task: {{task}}'",
+    "post-task": "./mvnw test",
+    "session-end": "./mvnw verify && echo 'Production readiness report generated'"
+  }
+}

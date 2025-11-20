@@ -210,59 +210,67 @@ public class FlywayConfigurationBuilder {
         Properties props = new Properties();
         
         FlywayLogger.debugf("Attempting to read subsystem configuration for deployment: %s", deploymentUnit.getName());
-        
+
+        // TODO: WildFly 35 migration - ModelController.createClient(Executor) API was removed
+        // This is optional functionality - subsystem configuration reading is disabled for now
+        // Deployments will rely on their own flyway.properties configuration
+        FlywayLogger.warnf("Model controller service not available");
+        return props;
+
+        /*
         try {
             ServiceController<?> controllerService = phaseContext.getServiceRegistry().getService(CONTROLLER);
             if (controllerService == null) {
                 FlywayLogger.warnf("Model controller service not available");
                 return props;
             }
-            
+
             ModelController modelController = (ModelController) controllerService.getValue();
             ServiceController<?> executorController = phaseContext.getServiceRegistry().getService(MANAGEMENT_EXECUTOR);
             if (executorController == null) {
                 FlywayLogger.warnf("Management executor service not available");
                 return props;
             }
-            
+
             Executor executor = (Executor) executorController.getValue();
             ModelControllerClient client = modelController.createClient(executor);
-            
+
+
             try {
                 // Read subsystem configuration
                 ModelNode address = PathAddress.pathAddress(
                         PathElement.pathElement("subsystem", "flyway")
                 ).toModelNode();
-                
+
                 ModelNode operation = new ModelNode();
                 operation.get("operation").set("read-resource");
                 operation.get("address").set(address);
                 operation.get("include-defaults").set(true);
                 operation.get("resolve-expressions").set(true);
-                
+
                 ModelNode result = client.execute(operation);
                 FlywayLogger.debugf("Subsystem read operation result: %s", result.toString());
-                
+
                 if (result.hasDefined("result")) {
                     ModelNode subsystem = result.get("result");
-                    
+
                     // Extract all attributes
                     String[] attributes = {
                         "enabled", "default-datasource", "baseline-on-migrate",
                         "clean-disabled", "validate-on-migrate", "locations", "table"
                     };
-                    
+
                     for (String attr : attributes) {
                         if (subsystem.hasDefined(attr)) {
                             String value = subsystem.get(attr).asString();
                             // Resolve any remaining expressions
                             value = resolveExpression(value);
                             props.setProperty(attr, value);
-                            FlywayLogger.debugf("Subsystem property: %s = %s", attr, 
+                            FlywayLogger.debugf("Subsystem property: %s = %s", attr,
                                               attr.contains("datasource") ? maskDataSource(value) : value);
                         }
                     }
-                    
+
                     if (props.isEmpty()) {
                         FlywayLogger.warnf("No subsystem properties were found!");
                     }
@@ -275,8 +283,9 @@ public class FlywayConfigurationBuilder {
         } catch (Exception e) {
             FlywayLogger.errorf(e, "Failed to read subsystem configuration");
         }
-        
+
         return props;
+        */
     }
     
     private String getPropertyValue(String key, String defaultValue) {

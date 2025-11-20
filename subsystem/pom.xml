@@ -50,13 +50,13 @@
         <dependency>
             <groupId>org.wildfly</groupId>
             <artifactId>wildfly-ee</artifactId>
-            <version>${version.org.wildfly}</version>
+            <version>${version.wildfly}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.wildfly</groupId>
             <artifactId>wildfly-naming</artifactId>
-            <version>${version.org.wildfly}</version>
+            <version>${version.wildfly}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

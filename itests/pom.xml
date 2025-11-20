@@ -12,7 +12,7 @@
     <artifactId>wildfly-flyway-itests</artifactId>
 
     <properties>
-        <jboss.home>${project.build.directory}/wildfly-${version.org.wildfly}</jboss.home>
+        <jboss.home>${project.build.directory}/wildfly-${version.wildfly}</jboss.home>
         <javaVmExtraArguments>-Dspring.flyway.enabled=true</javaVmExtraArguments>
         <server.configuration>standalone.xml</server.configuration>
     </properties>
@@ -47,11 +47,6 @@
         <dependency>
             <groupId>org.jboss.arquillian.protocol</groupId>
             <artifactId>arquillian-protocol-jmx</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.spec.javax.annotation</groupId>
-            <artifactId>jboss-annotations-api_1.3_spec</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
