@@ -27,7 +27,7 @@
         <version.wildfly.galleon-plugins>7.3.1.Final</version.wildfly.galleon-plugins>
         <version.wildfly.plugin>5.1.0.Final</version.wildfly.plugin>
         <version.galleon>6.0.4.Final</version.galleon>
-        <version.wildfly.arquillian>5.0.0.Final</version.wildfly.arquillian>
+        <version.wildfly.arquillian>5.1.0.Final</version.wildfly.arquillian>
         <version.jakarta.ee>10.0.0</version.jakarta.ee>
 
         <!-- Plugin versions -->
