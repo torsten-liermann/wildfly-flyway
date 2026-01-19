@@ -24,7 +24,7 @@
         <version.wildfly>35.0.1.Final</version.wildfly>
         <version.wildfly.core>27.0.1.Final</version.wildfly.core>
         <version.wildfly.common>1.6.0.Final</version.wildfly.common>
-        <version.wildfly.galleon-plugins>7.3.1.Final</version.wildfly.galleon-plugins>
+        <version.wildfly.galleon-plugins>8.1.0.Final</version.wildfly.galleon-plugins>
         <version.wildfly.plugin>5.1.0.Final</version.wildfly.plugin>
         <version.galleon>6.0.4.Final</version.galleon>
         <version.wildfly.arquillian>5.0.0.Final</version.wildfly.arquillian>
