@@ -55,16 +55,16 @@ public class FlywayMigrateOperation implements OperationStepHandler {
         
         context.addStep((context1, operation1) -> {
 
-            // Read datasource name with null check
-            ModelNode datasourceNode = context1.readResource(PathAddress.EMPTY_ADDRESS)
-                    .getModel()
-                    .get(FlywayManagementResourceDefinition.DATASOURCE.getName());
-            if (!datasourceNode.isDefined()) {
+            // Read and resolve datasource name (supports WildFly expressions like ${env.VAR:default})
+            ModelNode model = context1.readResource(PathAddress.EMPTY_ADDRESS).getModel();
+            ModelNode resolvedDatasource = FlywayManagementResourceDefinition.DATASOURCE
+                    .resolveModelAttribute(context1, model);
+            if (!resolvedDatasource.isDefined()) {
                 throw new OperationFailedException(
                     "No datasource configured for this Flyway migration resource. " +
                     "Set the 'datasource' attribute to the JNDI name of the target datasource.");
             }
-            final String datasourceName = datasourceNode.asString();
+            final String datasourceName = resolvedDatasource.asString();
             if (datasourceName.isBlank()) {
                 throw new OperationFailedException(
                     "Datasource name is empty. Provide a valid JNDI name (e.g., 'java:jboss/datasources/MyDS').");

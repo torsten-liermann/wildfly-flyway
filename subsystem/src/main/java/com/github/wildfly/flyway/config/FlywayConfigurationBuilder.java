@@ -77,19 +77,23 @@ public class FlywayConfigurationBuilder {
         collectDeploymentProperties();
         
         // Now determine datasource using the hierarchy
-        // 1. Check deployment properties first
-        String ds = getPropertyValue("datasource", null);
+        // 1. Check deployment properties DIRECTLY first (not the merged map,
+        //    because the merged map also contains subsystem defaults)
+        String ds = deploymentProperties.getProperty("flyway.datasource");
+        if (ds == null || ds.trim().isEmpty()) {
+            ds = deploymentProperties.getProperty("spring.flyway.datasource");
+        }
         if (ds != null && !ds.trim().isEmpty()) {
             datasourceJndiName = resolveExpression(ds);
             isFromSubsystem = false;
             FlywayLogger.infof("Using datasource from deployment properties: %s", maskDataSource(datasourceJndiName));
             return createResult();
         }
-        
+
         // 2. Use subsystem default-datasource if available
         ds = subsystemProps.getProperty("default-datasource");
         if (ds != null && !ds.trim().isEmpty()) {
-            datasourceJndiName = ds;
+            datasourceJndiName = resolveExpression(ds);
             isFromSubsystem = true;
             FlywayLogger.infof("Using default datasource from subsystem configuration: %s", maskDataSource(datasourceJndiName));
             return createResult();

@@ -157,18 +157,18 @@ public class FlywaySubsystemTestCase extends AbstractSubsystemBaseTest {
      */
     @Test
     public void testInvalidConfiguration() throws Exception {
-        // Test with invalid attribute
+        // Test with invalid attribute -- parser should reject unknown attributes
         String invalidXml = "<subsystem xmlns=\"urn:wildfly:flyway:1.0\" invalid-attribute=\"true\" />";
-        
+
         try {
             KernelServices services = super.createKernelServicesBuilder(createAdditionalInitialization())
                     .setSubsystemXml(invalidXml)
                     .build();
             fail("Should have failed with invalid attribute");
         } catch (XMLStreamException e) {
-            // Expected - invalid configuration should fail during XML parsing
-        } catch (Exception e) {
-            // Expected - invalid configuration should fail
+            // Expected - parser throws XMLStreamException for unexpected attributes
+            assertTrue("Error should mention the unexpected attribute",
+                    e.getMessage() != null && e.getMessage().contains("invalid-attribute"));
         }
     }
 
