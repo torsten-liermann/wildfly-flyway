@@ -31,7 +31,7 @@ public class SpringBootPropertyResolver {
 
     // Security patterns for input validation
     private static final Pattern SCRIPT_PATTERN = Pattern.compile("<script[^>]*>.*?</script>", Pattern.CASE_INSENSITIVE);
-    private static final Pattern SQL_INJECTION_PATTERN = Pattern.compile("('.+--)|(--)|(;)|(\\*/)|(/\\*)|(@)|(char\\()|('\\s*or\\s*'1'\\s*=\\s*'1)|(\\s*or\\s*1\\s*=\\s*1)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SQL_INJECTION_PATTERN = Pattern.compile("('.+--)|(--)|(\\*/)|(/\\*)|(char\\()|('\\s*or\\s*'1'\\s*=\\s*'1)|(\\s*or\\s*1\\s*=\\s*1)", Pattern.CASE_INSENSITIVE);
     private static final Pattern PATH_TRAVERSAL_PATTERN = Pattern.compile("\\.\\.[\\\\/]");
     private static final Pattern JNDI_PATTERN = Pattern.compile("\\$\\{jndi:.*}", Pattern.CASE_INSENSITIVE);
     private static final Pattern COMMAND_INJECTION_PATTERN = Pattern.compile("[`$()]|\\$\\(.*\\)");

@@ -405,51 +405,41 @@ public class FlywayConfiguration {
     private void applyCallbacksAndResolvers(FluentConfiguration config) {
         String callbacks = getProperty(CALLBACKS);
         if (callbacks != null && !callbacks.trim().isEmpty()) {
-            // Parse and instantiate callbacks
-            String[] callbackClasses = callbacks.split(",");
-            List<Object> callbackInstances = new ArrayList<>();
-            for (String callbackClass : callbackClasses) {
-                try {
-                    Class<?> clazz = Class.forName(callbackClass.trim());
-                    callbackInstances.add(clazz.getDeclaredConstructor().newInstance());
-                    FlywayLogger.debugf("Added callback: %s", callbackClass);
-                } catch (Exception e) {
-                    FlywayLogger.errorf(e, "Failed to instantiate callback: %s", callbackClass);
-                }
-            }
-            if (!callbackInstances.isEmpty()) {
-                // Flyway 11 expects callback class names as strings
-                String[] callbackNames = new String[callbackClasses.length];
-                for (int i = 0; i < callbackClasses.length; i++) {
-                    callbackNames[i] = callbackClasses[i].trim();
-                }
-                config.callbacks(callbackNames);
+            // Validate and pass callback class names to Flyway
+            List<String> validCallbacks = validateClassNames(callbacks.split(","), "callback");
+            if (!validCallbacks.isEmpty()) {
+                config.callbacks(validCallbacks.toArray(new String[0]));
             }
         }
-        
+
         String resolvers = getProperty(RESOLVERS);
         if (resolvers != null && !resolvers.trim().isEmpty()) {
-            // Parse and instantiate resolvers
-            String[] resolverClasses = resolvers.split(",");
-            List<Object> resolverInstances = new ArrayList<>();
-            for (String resolverClass : resolverClasses) {
-                try {
-                    Class<?> clazz = Class.forName(resolverClass.trim());
-                    resolverInstances.add(clazz.getDeclaredConstructor().newInstance());
-                    FlywayLogger.debugf("Added resolver: %s", resolverClass);
-                } catch (Exception e) {
-                    FlywayLogger.errorf(e, "Failed to instantiate resolver: %s", resolverClass);
-                }
-            }
-            if (!resolverInstances.isEmpty()) {
-                // Flyway 11 expects resolver class names as strings
-                String[] resolverNames = new String[resolverClasses.length];
-                for (int i = 0; i < resolverClasses.length; i++) {
-                    resolverNames[i] = resolverClasses[i].trim();
-                }
-                config.resolvers(resolverNames);
+            // Validate and pass resolver class names to Flyway
+            List<String> validResolvers = validateClassNames(resolvers.split(","), "resolver");
+            if (!validResolvers.isEmpty()) {
+                config.resolvers(validResolvers.toArray(new String[0]));
             }
         }
+    }
+
+    /**
+     * Validate that class names can be loaded (without instantiating them).
+     * Flyway will handle instantiation itself.
+     */
+    private List<String> validateClassNames(String[] classNames, String type) {
+        List<String> valid = new ArrayList<>();
+        for (String className : classNames) {
+            String trimmed = className.trim();
+            if (trimmed.isEmpty()) continue;
+            try {
+                Class.forName(trimmed);
+                valid.add(trimmed);
+                FlywayLogger.debugf("Validated %s class: %s", type, trimmed);
+            } catch (ClassNotFoundException e) {
+                FlywayLogger.errorf(e, "Failed to find %s class: %s", type, trimmed);
+            }
+        }
+        return valid;
     }
     
     private void applyJdbcProperties(FluentConfiguration config) {
