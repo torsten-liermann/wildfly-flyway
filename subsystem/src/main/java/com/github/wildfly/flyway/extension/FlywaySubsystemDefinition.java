@@ -18,9 +18,12 @@ import org.jboss.as.server.deployment.Phase;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 
+import com.github.wildfly.flyway.config.SubsystemConfigurationHolder;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Properties;
 
 /**
  * Flyway subsystem definition - simple subsystem with minimal configuration.
@@ -131,13 +134,25 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
         protected void performBoottime(OperationContext context, ModelNode operation, ModelNode model)
                 throws OperationFailedException {
             
+            // Read and store subsystem configuration for use by FlywayConfigurationBuilder
+            Properties subsystemConfig = new Properties();
+            for (AttributeDefinition attr : ATTRIBUTES) {
+                ModelNode resolved = attr.resolveModelAttribute(context, model);
+                if (resolved.isDefined()) {
+                    subsystemConfig.setProperty(attr.getName(), resolved.asString());
+                }
+            }
+            SubsystemConfigurationHolder.setConfiguration(subsystemConfig);
+            com.github.wildfly.flyway.logging.FlywayLogger.debugf(
+                    "Subsystem configuration stored with %d properties", subsystemConfig.size());
+
             // Check if subsystem is enabled
             boolean enabled = ENABLED.resolveModelAttribute(context, model).asBoolean();
             if (!enabled) {
                 com.github.wildfly.flyway.logging.FlywayLogger.info("Flyway subsystem is disabled");
                 return;
             }
-            
+
             // Register deployment processor
             context.addStep(new AbstractDeploymentChainStep() {
                 @Override
@@ -164,7 +179,7 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
         
         @Override
         protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) {
-            // Remove any runtime services if needed
+            SubsystemConfigurationHolder.clear();
         }
     }
 }

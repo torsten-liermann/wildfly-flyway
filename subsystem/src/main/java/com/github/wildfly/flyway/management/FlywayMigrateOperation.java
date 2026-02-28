@@ -55,10 +55,20 @@ public class FlywayMigrateOperation implements OperationStepHandler {
         
         context.addStep((context1, operation1) -> {
 
-            final String datasourceName = context1.readResource(PathAddress.EMPTY_ADDRESS)
+            // Read datasource name with null check
+            ModelNode datasourceNode = context1.readResource(PathAddress.EMPTY_ADDRESS)
                     .getModel()
-                    .get(FlywayManagementResourceDefinition.DATASOURCE.getName())
-                    .asString();
+                    .get(FlywayManagementResourceDefinition.DATASOURCE.getName());
+            if (!datasourceNode.isDefined()) {
+                throw new OperationFailedException(
+                    "No datasource configured for this Flyway migration resource. " +
+                    "Set the 'datasource' attribute to the JNDI name of the target datasource.");
+            }
+            final String datasourceName = datasourceNode.asString();
+            if (datasourceName.isBlank()) {
+                throw new OperationFailedException(
+                    "Datasource name is empty. Provide a valid JNDI name (e.g., 'java:jboss/datasources/MyDS').");
+            }
 
             // Get optional parameters
             final String target = TARGET.resolveValue(context1, operation1).asStringOrNull();
@@ -66,9 +76,17 @@ public class FlywayMigrateOperation implements OperationStepHandler {
             final boolean skipExecutingMigrations = SKIP_EXECUTING_MIGRATIONS.resolveValue(context1, operation1).asBoolean();
 
             try {
+                // Resolve datasource: if it looks like a JNDI name, strip the prefix for capability lookup
+                String capabilityName = datasourceName;
+                if (capabilityName.startsWith("java:jboss/datasources/")) {
+                    capabilityName = capabilityName.substring("java:jboss/datasources/".length());
+                } else if (capabilityName.startsWith("java:/")) {
+                    capabilityName = capabilityName.substring("java:/".length());
+                }
+
                 // Get the datasource using capability service name
                 ServiceName datasourceServiceName = context1.getCapabilityServiceName(
-                    DATA_SOURCE_CAPABILITY_NAME, datasourceName, DataSource.class);
+                    DATA_SOURCE_CAPABILITY_NAME, capabilityName, DataSource.class);
                 ServiceController<?> datasourceService = context1.getServiceRegistry(false)
                     .getRequiredService(datasourceServiceName);
 

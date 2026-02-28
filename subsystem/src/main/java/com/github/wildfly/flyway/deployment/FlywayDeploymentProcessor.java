@@ -125,14 +125,17 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
     }
 
     /**
-     * Check if the deployment has migration files
+     * Check if the deployment has migration files.
+     * Uses two strategies:
+     * 1. ClassLoader resource lookup for standard migration directories
+     * 2. VFS-based check on the deployment's resource root as fallback
      */
     private boolean hasMigrations(DeploymentUnit deploymentUnit) {
+        // Strategy 1: ClassLoader-based directory check
         ClassLoader classLoader = deploymentUnit.getAttachment(
                 org.jboss.as.server.deployment.Attachments.MODULE
         ).getClassLoader();
 
-        // Check for any SQL migration files in standard locations
         String[] locations = {
                 "db/migration",
                 "WEB-INF/classes/db/migration",
@@ -140,18 +143,18 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
         };
 
         for (String location : locations) {
-            // Check if directory exists
             if (classLoader.getResource(location) != null) {
                 return true;
             }
+        }
 
-            // Also check for specific migration files (V*.sql, U*.sql, R*.sql)
-            String[] prefixes = {"V", "U", "R"};
-            for (String prefix : prefixes) {
-                if (classLoader.getResource(location + "/" + prefix + "1__") != null ||
-                        classLoader.getResource(location + "/" + prefix + "001__") != null ||
-                        classLoader.getResource(location + "/" + prefix + "1.0__") != null ||
-                        classLoader.getResource(location + "/" + prefix + "1_") != null) {
+        // Strategy 2: VFS-based check on resource root
+        ResourceRoot deploymentRoot = deploymentUnit.getAttachment(
+                org.jboss.as.server.deployment.Attachments.DEPLOYMENT_ROOT);
+        if (deploymentRoot != null) {
+            for (String location : locations) {
+                VirtualFile migrationDir = deploymentRoot.getRoot().getChild(location);
+                if (migrationDir.exists() && !migrationDir.getChildren().isEmpty()) {
                     return true;
                 }
             }

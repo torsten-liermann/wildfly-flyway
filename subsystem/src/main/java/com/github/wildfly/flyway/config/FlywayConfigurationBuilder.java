@@ -1,24 +1,11 @@
 package com.github.wildfly.flyway.config;
 
-import com.github.wildfly.flyway.FlywayAttributeDefinitions;
 import com.github.wildfly.flyway.logging.FlywayLogger;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
-import org.jboss.as.controller.ModelController;
-import org.jboss.as.controller.OperationContext;
-import org.jboss.as.controller.OperationFailedException;
-import org.jboss.as.controller.PathAddress;
-import org.jboss.as.controller.PathElement;
-import org.jboss.as.controller.SimpleAttributeDefinition;
-import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
-import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.as.ee.metadata.property.Attachments;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
-import org.jboss.dmr.ModelNode;
-import org.jboss.dmr.ModelType;
 import org.jboss.metadata.property.PropertyReplacer;
-import org.jboss.msc.service.ServiceController;
-import org.jboss.msc.service.ServiceName;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -26,7 +13,6 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Executor;
 
 /**
  * Central builder for Flyway configuration that handles the three-tier configuration hierarchy:
@@ -38,10 +24,7 @@ import java.util.concurrent.Executor;
  * FlywayDeploymentProcessor and FlywayMigrationService.
  */
 public class FlywayConfigurationBuilder {
-    
-    private static final ServiceName MANAGEMENT_EXECUTOR = ServiceName.of("jboss", "as", "management", "executor");
-    private static final ServiceName CONTROLLER = ServiceName.of("jboss", "as", "controller", "management", "model-controller");
-    
+
     private final DeploymentPhaseContext phaseContext;
     private final DeploymentUnit deploymentUnit;
     private final Properties deploymentProperties;
@@ -207,85 +190,22 @@ public class FlywayConfigurationBuilder {
     
     
     private Properties readSubsystemConfiguration() {
-        Properties props = new Properties();
-        
-        FlywayLogger.debugf("Attempting to read subsystem configuration for deployment: %s", deploymentUnit.getName());
+        FlywayLogger.debugf("Reading subsystem configuration for deployment: %s", deploymentUnit.getName());
 
-        // TODO: WildFly 35 migration - ModelController.createClient(Executor) API was removed
-        // This is optional functionality - subsystem configuration reading is disabled for now
-        // Deployments will rely on their own flyway.properties configuration
-        FlywayLogger.warnf("Model controller service not available");
-        return props;
+        Properties props = SubsystemConfigurationHolder.getConfiguration();
 
-        /*
-        try {
-            ServiceController<?> controllerService = phaseContext.getServiceRegistry().getService(CONTROLLER);
-            if (controllerService == null) {
-                FlywayLogger.warnf("Model controller service not available");
-                return props;
+        if (props.isEmpty()) {
+            FlywayLogger.debugf("No subsystem configuration available (subsystem not configured or disabled)");
+        } else {
+            FlywayLogger.debugf("Loaded %d subsystem properties from boot-phase configuration", props.size());
+            for (String key : props.stringPropertyNames()) {
+                String value = props.getProperty(key);
+                FlywayLogger.debugf("Subsystem property: %s = %s", key,
+                                  key.contains("datasource") ? maskDataSource(value) : value);
             }
-
-            ModelController modelController = (ModelController) controllerService.getValue();
-            ServiceController<?> executorController = phaseContext.getServiceRegistry().getService(MANAGEMENT_EXECUTOR);
-            if (executorController == null) {
-                FlywayLogger.warnf("Management executor service not available");
-                return props;
-            }
-
-            Executor executor = (Executor) executorController.getValue();
-            ModelControllerClient client = modelController.createClient(executor);
-
-
-            try {
-                // Read subsystem configuration
-                ModelNode address = PathAddress.pathAddress(
-                        PathElement.pathElement("subsystem", "flyway")
-                ).toModelNode();
-
-                ModelNode operation = new ModelNode();
-                operation.get("operation").set("read-resource");
-                operation.get("address").set(address);
-                operation.get("include-defaults").set(true);
-                operation.get("resolve-expressions").set(true);
-
-                ModelNode result = client.execute(operation);
-                FlywayLogger.debugf("Subsystem read operation result: %s", result.toString());
-
-                if (result.hasDefined("result")) {
-                    ModelNode subsystem = result.get("result");
-
-                    // Extract all attributes
-                    String[] attributes = {
-                        "enabled", "default-datasource", "baseline-on-migrate",
-                        "clean-disabled", "validate-on-migrate", "locations", "table"
-                    };
-
-                    for (String attr : attributes) {
-                        if (subsystem.hasDefined(attr)) {
-                            String value = subsystem.get(attr).asString();
-                            // Resolve any remaining expressions
-                            value = resolveExpression(value);
-                            props.setProperty(attr, value);
-                            FlywayLogger.debugf("Subsystem property: %s = %s", attr,
-                                              attr.contains("datasource") ? maskDataSource(value) : value);
-                        }
-                    }
-
-                    if (props.isEmpty()) {
-                        FlywayLogger.warnf("No subsystem properties were found!");
-                    }
-                } else {
-                    FlywayLogger.warnf("No result found in subsystem read operation");
-                }
-            } finally {
-                client.close();
-            }
-        } catch (Exception e) {
-            FlywayLogger.errorf(e, "Failed to read subsystem configuration");
         }
 
         return props;
-        */
     }
     
     private String getPropertyValue(String key, String defaultValue) {

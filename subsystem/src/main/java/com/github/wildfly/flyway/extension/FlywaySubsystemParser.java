@@ -5,6 +5,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
 import static org.jboss.as.controller.parsing.ParseUtils.requireNoContent;
+import static org.jboss.as.controller.parsing.ParseUtils.unexpectedAttribute;
 
 import java.util.List;
 import javax.xml.stream.XMLStreamConstants;
@@ -52,6 +53,8 @@ final class FlywaySubsystemParser implements XMLStreamConstants, XMLElementReade
                 subsystemAdd.get("locations").set(attrValue);
             } else if ("table".equals(attrName)) {
                 subsystemAdd.get("table").set(attrValue);
+            } else {
+                throw unexpectedAttribute(reader, i);
             }
         }
         

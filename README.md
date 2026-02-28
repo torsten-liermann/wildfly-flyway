@@ -72,9 +72,9 @@ Deploy your application - migrations run automatically!
 
 The subsystem uses a three-level configuration hierarchy:
 
-1. **Base Configuration**: Subsystem configuration in `standalone.xml` provides defaults for ALL deployments
-2. **Application Overrides**: Properties in `META-INF/flyway.properties` override specific subsystem defaults
-3. **Datasource Resolution**: 
+1. **Base Configuration**: Subsystem configuration in `standalone.xml` provides defaults for ALL deployments. Attributes are resolved during server boot and made available to the deployment processor.
+2. **Application Overrides**: Properties in `META-INF/flyway.properties` override specific subsystem defaults per deployment.
+3. **Datasource Resolution**:
    - From application properties (highest priority)
    - From subsystem `default-datasource`
    - Auto-discovery (only if explicitly enabled)
@@ -113,7 +113,7 @@ Configure global defaults in `standalone.xml` that apply to ALL deployments:
            table="flyway_schema_history"/>
 ```
 
-**Important:** 
+**Important:**
 - These settings provide the base configuration for all deployments
 - Applications inherit these defaults automatically
 - Applications can override individual settings in their `flyway.properties`
@@ -303,9 +303,9 @@ INFO  [com.github.wildfly.flyway] Successfully executed 3 migrations for deploym
 ### Configuration Not Applied
 
 Remember the precedence order:
-1. Application properties override everything
-2. Subsystem configuration provides defaults
-3. Both `flyway.*` and `spring.flyway.*` properties work
+1. Application properties override subsystem defaults
+2. Subsystem configuration provides base defaults for all deployments
+3. Both `flyway.*` and `spring.flyway.*` property namespaces are supported
 
 ## Security Considerations
 

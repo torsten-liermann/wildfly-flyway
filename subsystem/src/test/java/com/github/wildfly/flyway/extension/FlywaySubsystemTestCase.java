@@ -156,7 +156,6 @@ public class FlywaySubsystemTestCase extends AbstractSubsystemBaseTest {
      * Tests invalid configurations that should fail.
      */
     @Test
-    @Ignore("Parser currently ignores unknown attributes")
     public void testInvalidConfiguration() throws Exception {
         // Test with invalid attribute
         String invalidXml = "<subsystem xmlns=\"urn:wildfly:flyway:1.0\" invalid-attribute=\"true\" />";
