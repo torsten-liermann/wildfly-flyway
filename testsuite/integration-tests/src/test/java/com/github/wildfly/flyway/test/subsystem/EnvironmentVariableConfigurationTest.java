@@ -133,7 +133,7 @@ public class EnvironmentVariableConfigurationTest {
         //    spring.flyway.locations=${env.FLYWAY_LOCATIONS:classpath:db/migration}
         
         // 2. Or in subsystem configuration (standalone.xml):
-        //    <subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+        //    <subsystem xmlns="urn:wildfly:flyway:1.0"
         //               default-datasource="${env.FLYWAY_DATASOURCE}"
         //               baseline-on-migrate="${env.FLYWAY_BASELINE:false}"
         //               locations="${env.FLYWAY_LOCATIONS:classpath:db/migration}"/>

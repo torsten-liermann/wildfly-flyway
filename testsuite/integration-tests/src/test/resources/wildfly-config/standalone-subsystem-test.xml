@@ -4,7 +4,7 @@
         <extension module="com.github.wildfly.flyway"/>
     </extensions>
     
-    <subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+    <subsystem xmlns="urn:wildfly:flyway:1.0"
                enabled="true"
                default-datasource="java:jboss/datasources/SubsystemTestDS"
                baseline-on-migrate="true"

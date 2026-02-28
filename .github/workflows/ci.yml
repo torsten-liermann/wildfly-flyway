@@ -36,7 +36,7 @@ jobs:
       uses: actions/upload-artifact@v4
       if: failure()
       with:
-        name: test-reports-jdk-11
+        name: test-reports-jdk-17
         path: |
           **/target/surefire-reports/
           **/target/failsafe-reports/

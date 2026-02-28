@@ -37,7 +37,6 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
     
     static final AttributeDefinition DEFAULT_DATASOURCE = SimpleAttributeDefinitionBuilder
             .create("default-datasource", ModelType.STRING)
-            .setDefaultValue(new ModelNode("ExampleDS"))
             .setRequired(false)
             .setAllowExpression(true)
             .setRestartAllServices()

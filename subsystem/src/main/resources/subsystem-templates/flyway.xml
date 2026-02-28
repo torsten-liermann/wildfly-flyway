@@ -5,7 +5,7 @@
   This configuration uses environment variables for cloud-native deployments.
   All attributes support WildFly expression resolution.
 -->
-<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+<subsystem xmlns="urn:wildfly:flyway:1.0"
            enabled="${env.FLYWAY_ENABLED:true}"
            default-datasource="${env.FLYWAY_DATASOURCE:}"
            baseline-on-migrate="${env.FLYWAY_BASELINE_ON_MIGRATE:false}"

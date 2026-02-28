@@ -34,7 +34,7 @@ Add the subsystem to your `standalone.xml`:
 ```xml
 <extension module="com.github.wildfly.flyway"/>
 
-<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"/>
+<subsystem xmlns="urn:wildfly:flyway:1.0"/>
 ```
 
 ### 3. Add Migration Scripts
@@ -103,7 +103,7 @@ flyway.datasource=java:jboss/datasources/MyDS
 Configure global defaults in `standalone.xml` that apply to ALL deployments:
 
 ```xml
-<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+<subsystem xmlns="urn:wildfly:flyway:1.0"
            enabled="true"
            default-datasource="java:jboss/datasources/DefaultDS"
            baseline-on-migrate="false"
@@ -126,7 +126,7 @@ The subsystem supports full WildFly expression resolution, including environment
 #### In Subsystem Configuration (standalone.xml)
 
 ```xml
-<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+<subsystem xmlns="urn:wildfly:flyway:1.0"
            enabled="${env.FLYWAY_ENABLED:true}"
            default-datasource="${env.FLYWAY_DATASOURCE:}"
            baseline-on-migrate="${env.FLYWAY_BASELINE_ON_MIGRATE:false}"
@@ -187,7 +187,7 @@ export FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/patches
 Configure defaults in `standalone.xml` once:
 
 ```xml
-<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+<subsystem xmlns="urn:wildfly:flyway:1.0"
            default-datasource="${env.DB_DATASOURCE:java:jboss/datasources/PostgresDS}"
            baseline-on-migrate="${env.DB_BASELINE:false}"
            locations="${env.DB_MIGRATION_PATH:classpath:db/migration}"/>
@@ -219,7 +219,7 @@ spring.flyway.locations=${env.DB_MIGRATION_PATH:classpath:db/migration}
 Or configure in the subsystem with required environment variables:
 
 ```xml
-<subsystem xmlns="urn:com.github.wildfly.flyway:1.0"
+<subsystem xmlns="urn:wildfly:flyway:1.0"
            default-datasource="${env.DB_DATASOURCE}"/>
 ```
 
