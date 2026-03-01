@@ -4,7 +4,7 @@
             <id>allrepos</id>
             <name>allrepos</name>
             <url>https://repo-m.akdb.net/repository/allrepos</url>
-            <mirrorOf>external:*,!redhat-ga,!jboss-public,${internalRepos}</mirrorOf>
+            <mirrorOf>external:*,!redhat-ga-repository,!jboss-public-repository,${internalRepos}</mirrorOf>
         </mirror>
     </mirrors>
     <servers>
