@@ -17,7 +17,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Versions -->
-        <version.junit>5.10.0</version.junit>
+        <version.junit>5.10.5</version.junit>
         <version.org.jboss.arquillian>1.7.0.Final</version.org.jboss.arquillian>
         <version.org.flywaydb>11.7.2</version.org.flywaydb>
         <!-- WildFly/JBoss Versions (EAP 8.1 baseline: WildFly 35.0.1.Final) -->
@@ -31,9 +31,9 @@
         <version.jakarta.ee>10.0.0</version.jakarta.ee>
 
         <!-- Plugin versions -->
-        <version.compiler.plugin>3.14.0</version.compiler.plugin>
-        <version.resources.plugin>3.3.1</version.resources.plugin>
-        <version.surefire.plugin>3.5.3</version.surefire.plugin>
+        <version.compiler.plugin>3.15.0</version.compiler.plugin>
+        <version.resources.plugin>3.4.0</version.resources.plugin>
+        <version.surefire.plugin>3.5.5</version.surefire.plugin>
         <version.flatten.plugin>1.7.3</version.flatten.plugin>
         <version.deploy.plugin>3.1.4</version.deploy.plugin>
         <version.org.slf4j>2.0.16</version.org.slf4j>
@@ -263,7 +263,7 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.4.2</version>
+                    <version>3.5.0</version>
                 </plugin>
             </plugins>
         </pluginManagement>
