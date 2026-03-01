@@ -21,6 +21,9 @@ compile:
     expire_in: 1 hour
     paths:
       - '**/target'
+    exclude:
+      - '**/target/server/**'
+      - '**/target/server-*/**'
   script:
     - |
       SKIP_FLAGS="-DskipTests -DskipITs"
