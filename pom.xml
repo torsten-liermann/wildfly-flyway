@@ -11,6 +11,7 @@
     <name>wildfly-flyway</name>
     <description>The WildFly Flyway Subsystem</description>
     <url>https://github.com/wildfly/wildfly-flyway</url>
+    <inceptionYear>2017</inceptionYear>
 
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
@@ -48,6 +49,7 @@
 
     <developers>
         <developer>
+            <id>wildfly</id>
             <name>WildFly Team</name>
             <url>https://github.com/wildfly</url>
         </developer>
@@ -57,6 +59,11 @@
         <url>https://github.com/wildfly/wildfly-flyway/issues</url>
         <system>GitHub</system>
     </issueManagement>
+
+    <ciManagement>
+        <system>GitHub Actions</system>
+        <url>https://github.com/wildfly/wildfly-flyway/actions</url>
+    </ciManagement>
 
     <licenses>
         <license>
