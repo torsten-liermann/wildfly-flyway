@@ -6,25 +6,9 @@ include:
 variables:
   JAVA_VERSION: "17"
 
-# Override compile aus Shared Library.
-# Shared Library fuehrt `mvn compile` aus — das reicht fuer Multi-Module-Projekte
-# mit Galleon Feature-Pack nicht, weil das Feature-Pack-Zip erst in der Phase
-# prepare-package entsteht. Die integration-tests deklarieren eine Dependency
-# auf wildfly-flyway-feature-pack:zip, die bei `compile` nicht aufloesbar ist.
-# Loesung: `mvn install` statt `mvn compile`, damit das Feature-Pack-Artefakt
-# im lokalen Repository verfuegbar ist.
+# Provisionierte WildFly-Server vom Artifact-Upload excluden
 compile:
-  extends:
-    - .default-maven-setup
-  stage: compile
   artifacts:
-    expire_in: 1 hour
-    paths:
-      - '**/target'
     exclude:
       - '**/target/server/**'
       - '**/target/server-*/**'
-  script:
-    - |
-      SKIP_FLAGS="-DskipTests -DskipITs"
-      $MVN clean install $SKIP_FLAGS $MAVEN_COMPILE_ARGS
