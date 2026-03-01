@@ -141,7 +141,7 @@
                         <goals>
                             <goal>provision</goal>
                         </goals>
-                        <phase>compile</phase>
+                        <phase>pre-integration-test</phase>
                         <configuration>
                             <provisioning-dir>${jboss.dist}</provisioning-dir>
                             <galleon-options>
