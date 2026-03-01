@@ -1,6 +1,6 @@
 include:
   - project: 'b6/t622/km-zentral/gitlab-ci-library'
-    ref: 'v1.1'
+    ref: 'main'
     file: '/maven/maven-complete-pipeline.yml'
 
 variables:
