@@ -46,7 +46,7 @@
                         <goals>
                             <goal>build-feature-pack</goal>
                         </goals>
-                        <phase>prepare-package</phase>
+                        <phase>process-resources</phase>
                     </execution>
                 </executions>
                 <configuration>
@@ -56,6 +56,25 @@
                     </task-properties>
                     <fork-embedded>true</fork-embedded>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <!--
+  Frueh ins lokale Repository installieren, weil Galleon (wildfly-galleon-maven-plugin)
+  Reactor-Artefakte nicht erkennt und sie aus dem Repository haben moechte.
+  D.h. im Reactor gebaute Feature Packs muessen zuvor installiert sein.
+ -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-install</id>
+                        <goals>
+                            <goal>install</goal>
+                        </goals>
+                        <phase>compile</phase>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
