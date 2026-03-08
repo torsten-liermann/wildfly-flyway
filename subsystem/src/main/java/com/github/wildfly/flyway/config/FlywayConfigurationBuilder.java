@@ -234,7 +234,18 @@ public class FlywayConfigurationBuilder {
         return defaultValue;
     }
     
-    private String normalizeKey(String key) {
+    /**
+     * Normalize a deployment property key to the canonical {@code spring.flyway.*} format.
+     * Keys already in that format are returned as-is; keys in the {@code flyway.*} namespace
+     * are converted; anything else returns {@code null}.
+     *
+     * <p>Package-visible so that unit tests in the same package can invoke the production logic
+     * directly.</p>
+     */
+    static String normalizeKey(String key) {
+        if (key == null) {
+            return null;
+        }
         if (key.startsWith("spring.flyway.")) {
             return key;
         } else if (key.startsWith("flyway.")) {

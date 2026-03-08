@@ -55,8 +55,19 @@ public class FlywayMigrateOperation implements OperationStepHandler {
         
         context.addStep((context1, operation1) -> {
 
-            // Read and resolve datasource name (supports WildFly expressions like ${env.VAR:default})
+            // Read management resource model
             ModelNode model = context1.readResource(PathAddress.EMPTY_ADDRESS).getModel();
+
+            // Check if migration resource is enabled
+            ModelNode resolvedEnabled = FlywayManagementResourceDefinition.ENABLED
+                    .resolveModelAttribute(context1, model);
+            if (resolvedEnabled.isDefined() && !resolvedEnabled.asBoolean()) {
+                throw new OperationFailedException(
+                    "Flyway migration resource is disabled. " +
+                    "Set the 'enabled' attribute to 'true' to allow migrations.");
+            }
+
+            // Read and resolve datasource name (supports WildFly expressions like ${env.VAR:default})
             ModelNode resolvedDatasource = FlywayManagementResourceDefinition.DATASOURCE
                     .resolveModelAttribute(context1, model);
             if (!resolvedDatasource.isDefined()) {
