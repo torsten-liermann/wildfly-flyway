@@ -19,25 +19,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Test that verifies subsystem configuration is properly used as base configuration
- * for all deployments.
- * 
+ * Test that verifies deployment properties are applied to Flyway configuration.
+ *
  * This test specifically validates that:
- * 1. Subsystem configuration provides defaults for all properties
- * 2. Deployment properties override subsystem defaults
- * 3. The datasource can come from subsystem default-datasource
+ * 1. Flyway properties from META-INF/flyway.properties are applied
+ * 2. The schema history table name can be overridden via deployment properties
+ * 3. The datasource from deployment properties is used
  */
 @ExtendWith(ArquillianExtension.class)
 public class SubsystemConfigurationTest {
 
     @Deployment
     public static Archive<?> deployment() throws Exception {
-        
-        // Create a datasource that will be configured in standalone.xml
+
+        // Create a datasource
         String datasourceXml = """
             <datasources xmlns="urn:jboss:domain:datasources:7.0">
                 <datasource jndi-name="java:jboss/datasources/SubsystemTestDS" pool-name="SubsystemTestDS">
@@ -50,7 +50,7 @@ public class SubsystemConfigurationTest {
                 </datasource>
             </datasources>
             """;
-        
+
         // Migration script
         String migrationSql = """
             CREATE TABLE subsystem_config_test (
@@ -60,73 +60,63 @@ public class SubsystemConfigurationTest {
             );
             INSERT INTO subsystem_config_test (id, name, config_source) VALUES (1, 'test', 'subsystem');
             """;
-        
-        // Specify datasource explicitly to override the subsystem default-datasource.
-        // Other properties (clean-disabled, validate-on-migrate, locations) are NOT set
-        // here, so they come from subsystem defaults.
+
+        // Deployment properties override the default schema history table name.
+        // The Flyway default is "flyway_schema_history". By setting a different name
+        // here, we can verify that deployment properties are actually applied to
+        // the Flyway configuration — the history table must use the overridden name.
         String flywayProperties = """
             spring.flyway.enabled=true
             spring.flyway.datasource=java:jboss/datasources/SubsystemTestDS
+            spring.flyway.table=deployment_cfg_history
             """;
-        
+
         return ShrinkWrap.create(WebArchive.class, "subsystem-config-test.war")
             .addAsResource(new StringAsset(migrationSql), "db/migration/V1__Subsystem_config_test.sql")
             .addAsWebInfResource(new StringAsset(datasourceXml), "test-ds.xml")
             .addAsResource(new StringAsset(flywayProperties), "META-INF/flyway.properties")
             .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
     }
-    
+
     @Test
-    public void testSubsystemDefaultsApplied() throws Exception {
-        // This test verifies that subsystem defaults are properly applied
-        // Since we don't have a default-datasource in the test subsystem configuration,
-        // we're testing that the datasource from deployment properties is used,
-        // but other subsystem defaults (like clean-disabled=true) are still applied
-        
-        // Give Flyway time to run migrations
+    public void testMigrationExecutedSuccessfully() throws Exception {
+        // Verify Flyway ran the migration and created expected structures
+
         Thread.sleep(2000);
-        
-        // Get the datasource and verify migrations ran
+
         InitialContext ctx = new InitialContext();
         DataSource ds = (DataSource) ctx.lookup("java:jboss/datasources/SubsystemTestDS");
-        
+
         try (Connection conn = ds.getConnection()) {
-            // Check that migration ran successfully
             DatabaseMetaData metaData = conn.getMetaData();
-            
-            // Verify the test table was created
             List<String> tables = getTableNames(metaData);
+
+            // Verify the test table was created
             assertTrue(tables.contains("SUBSYSTEM_CONFIG_TEST"),
                      "Migration should have created subsystem_config_test table");
-            
-            // Verify Flyway schema history table exists
-            // The exact table name depends on subsystem configuration
-            boolean hasSchemaHistory = tables.contains("FLYWAY_SCHEMA_HISTORY") || 
-                                     tables.contains("flyway_schema_history");
-            assertTrue(hasSchemaHistory, "Flyway schema history table should exist");
-            
+
             // Verify data was inserted
             try (var stmt = conn.createStatement();
                  var rs = stmt.executeQuery("SELECT COUNT(*) FROM subsystem_config_test")) {
                 assertTrue(rs.next());
                 assertEquals(1, rs.getInt(1), "Should have 1 row inserted");
             }
-            
+
         } catch (Exception e) {
             fail("Failed to verify migration execution: " + e.getMessage());
         }
     }
-    
+
     @Test
-    public void testDeploymentPropertiesOverrideSubsystem() throws Exception {
-        // Verify that deployment properties override subsystem defaults.
+    public void testDeploymentPropertiesOverrideDefaults() throws Exception {
+        // Verify that deployment properties actually affect Flyway configuration.
         //
-        // The subsystem configures default-datasource=java:jboss/datasources/SubsystemTestDS.
-        // The deployment properties set spring.flyway.datasource=java:jboss/datasources/SubsystemTestDS
-        // explicitly, overriding the subsystem default. The observable proof is that migration
-        // ran against SubsystemTestDS (the deployment-specified datasource) and created the
-        // SUBSYSTEM_CONFIG_TEST table there. This verifies the deployment -> subsystem override
-        // path actually works end-to-end.
+        // The deployment sets spring.flyway.table=deployment_cfg_history, overriding
+        // the Flyway default "flyway_schema_history". If this property is correctly
+        // applied, the schema history table must be named DEPLOYMENT_CFG_HISTORY
+        // (H2 uppercases by default), and the default FLYWAY_SCHEMA_HISTORY must
+        // NOT exist. This test would fail if deployment properties were silently
+        // ignored.
 
         Thread.sleep(2000);
 
@@ -134,28 +124,36 @@ public class SubsystemConfigurationTest {
         DataSource ds = (DataSource) ctx.lookup("java:jboss/datasources/SubsystemTestDS");
 
         try (Connection conn = ds.getConnection()) {
-            // Verify that migration ran successfully against the datasource
-            // specified in deployment properties (not just subsystem default)
             DatabaseMetaData metaData = conn.getMetaData();
             List<String> tables = getTableNames(metaData);
 
-            // The deployment-specific table must exist, proving the deployment properties
-            // were applied (Flyway used this datasource, found our migration, ran it)
-            assertTrue(tables.contains("SUBSYSTEM_CONFIG_TEST"),
-                    "Table created by deployment migration must exist, " +
-                    "proving deployment properties were applied to configure Flyway");
+            // The overridden history table must exist (Flyway writes the name as-is,
+            // so it may be lowercase or uppercase depending on the database)
+            boolean hasOverriddenTable = tables.contains("DEPLOYMENT_CFG_HISTORY")
+                    || tables.contains("deployment_cfg_history");
+            assertTrue(hasOverriddenTable,
+                    "Schema history table should use the name from deployment properties " +
+                    "(spring.flyway.table=deployment_cfg_history); actual tables: " + tables);
 
-            // Verify the data was actually inserted (proves migration ran completely)
+            // The Flyway default table name must NOT exist — proves the override took effect
+            assertFalse(tables.contains("FLYWAY_SCHEMA_HISTORY")
+                        || tables.contains("flyway_schema_history"),
+                    "Default Flyway schema history table should NOT exist when " +
+                    "deployment properties override the table name; actual tables: " + tables);
+
+            // Verify migration was recorded in the overridden table
+            String historyTable = tables.contains("DEPLOYMENT_CFG_HISTORY")
+                    ? "DEPLOYMENT_CFG_HISTORY" : "deployment_cfg_history";
             try (var stmt = conn.createStatement();
                  var rs = stmt.executeQuery(
-                         "SELECT config_source FROM subsystem_config_test WHERE id = 1")) {
-                assertTrue(rs.next(), "Migration data should exist");
-                assertEquals("subsystem", rs.getString(1),
-                        "Data should match deployment migration script");
+                         "SELECT COUNT(*) FROM \"" + historyTable + "\" WHERE \"version\" = '1'")) {
+                assertTrue(rs.next(), "History table should have entries");
+                assertTrue(rs.getInt(1) > 0,
+                        "Migration V1 should be recorded in the overridden history table");
             }
         }
     }
-    
+
     private List<String> getTableNames(DatabaseMetaData metaData) throws Exception {
         List<String> tables = new ArrayList<>();
         try (ResultSet rs = metaData.getTables(null, null, "%", new String[]{"TABLE"})) {
