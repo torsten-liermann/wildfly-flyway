@@ -81,10 +81,11 @@ public class FlywayMigrateOperation implements OperationStepHandler {
                     "Datasource name is empty. Provide a valid JNDI name (e.g., 'java:jboss/datasources/MyDS').");
             }
 
-            // Get optional parameters
-            final String target = TARGET.resolveValue(context1, operation1).asStringOrNull();
-            final boolean outOfOrder = OUT_OF_ORDER.resolveValue(context1, operation1).asBoolean();
-            final boolean skipExecutingMigrations = SKIP_EXECUTING_MIGRATIONS.resolveValue(context1, operation1).asBoolean();
+            // Get optional operation parameters
+            ModelNode targetNode = TARGET.resolveModelAttribute(context1, operation1);
+            final String target = targetNode.isDefined() ? targetNode.asString() : null;
+            final boolean outOfOrder = OUT_OF_ORDER.resolveModelAttribute(context1, operation1).asBoolean();
+            final boolean skipExecutingMigrations = SKIP_EXECUTING_MIGRATIONS.resolveModelAttribute(context1, operation1).asBoolean();
 
             // Read configurable attributes from the management resource
             ModelNode resolvedLocations = FlywayManagementResourceDefinition.LOCATIONS
@@ -127,15 +128,17 @@ public class FlywayMigrateOperation implements OperationStepHandler {
                     locationArray[i] = locationArray[i].trim();
                 }
 
-                Flyway flyway = Flyway.configure()
+                var flywayConfig = Flyway.configure()
                         .dataSource(dataSource)
                         .locations(locationArray)
                         .baselineOnMigrate(baselineOnMigrate)
                         .cleanDisabled(cleanDisabled)
                         .outOfOrder(outOfOrder)
-                        .skipExecutingMigrations(skipExecutingMigrations)
-                        .target(target)
-                        .load();
+                        .skipExecutingMigrations(skipExecutingMigrations);
+                if (target != null) {
+                    flywayConfig.target(target);
+                }
+                Flyway flyway = flywayConfig.load();
 
                 // Execute migration
                 FlywayLogger.ROOT_LOGGER.infof("Executing Flyway migration for datasource: %s", datasourceName);
