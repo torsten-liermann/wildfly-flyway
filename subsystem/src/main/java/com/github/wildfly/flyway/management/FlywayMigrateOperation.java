@@ -75,6 +75,22 @@ public class FlywayMigrateOperation implements OperationStepHandler {
             final boolean outOfOrder = OUT_OF_ORDER.resolveValue(context1, operation1).asBoolean();
             final boolean skipExecutingMigrations = SKIP_EXECUTING_MIGRATIONS.resolveValue(context1, operation1).asBoolean();
 
+            // Read configurable attributes from the management resource
+            ModelNode resolvedLocations = FlywayManagementResourceDefinition.LOCATIONS
+                    .resolveModelAttribute(context1, model);
+            final String locations = resolvedLocations.isDefined()
+                    ? resolvedLocations.asString() : "classpath:db/migration";
+
+            ModelNode resolvedBaseline = FlywayManagementResourceDefinition.BASELINE_ON_MIGRATE
+                    .resolveModelAttribute(context1, model);
+            final boolean baselineOnMigrate = resolvedBaseline.isDefined()
+                    && resolvedBaseline.asBoolean();
+
+            ModelNode resolvedCleanDisabled = FlywayManagementResourceDefinition.CLEAN_DISABLED
+                    .resolveModelAttribute(context1, model);
+            final boolean cleanDisabled = !resolvedCleanDisabled.isDefined()
+                    || resolvedCleanDisabled.asBoolean();
+
             try {
                 // Resolve datasource: if it looks like a JNDI name, strip the prefix for capability lookup
                 String capabilityName = datasourceName;
@@ -94,12 +110,17 @@ public class FlywayMigrateOperation implements OperationStepHandler {
                 // as the service is already started and we need immediate access
                 DataSource dataSource = (DataSource) datasourceService.getValue();
 
-                // Configure Flyway
+                // Configure Flyway using the management resource attributes
+                String[] locationArray = locations.split(",");
+                for (int i = 0; i < locationArray.length; i++) {
+                    locationArray[i] = locationArray[i].trim();
+                }
+
                 Flyway flyway = Flyway.configure()
                         .dataSource(dataSource)
-                        .locations("classpath:db/migration")
-                        .baselineOnMigrate(false)
-                        .cleanDisabled(true)
+                        .locations(locationArray)
+                        .baselineOnMigrate(baselineOnMigrate)
+                        .cleanDisabled(cleanDisabled)
                         .outOfOrder(outOfOrder)
                         .skipExecutingMigrations(skipExecutingMigrations)
                         .target(target)

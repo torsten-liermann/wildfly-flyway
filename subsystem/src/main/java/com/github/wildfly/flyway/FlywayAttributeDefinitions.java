@@ -68,13 +68,6 @@ public class FlywayAttributeDefinitions {
             .setFlags(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES)
             .build();
 
-    public static final SimpleAttributeDefinition AUTO_DISCOVERY_ENABLED = new SimpleAttributeDefinitionBuilder("auto-discovery.enabled", ModelType.BOOLEAN)
-            .setRequired(false)
-            .setDefaultValue(ModelNode.FALSE)
-            .setAllowExpression(true)
-            .setFlags(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES)
-            .build();
-
     // Baseline configuration
     public static final SimpleAttributeDefinition BASELINE_VERSION = new SimpleAttributeDefinitionBuilder("baseline-version", ModelType.STRING)
             .setRequired(false)

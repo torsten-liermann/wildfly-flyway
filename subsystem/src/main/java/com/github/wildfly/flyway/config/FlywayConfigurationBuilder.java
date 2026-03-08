@@ -13,15 +13,19 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 /**
- * Central builder for Flyway configuration that handles the three-tier configuration hierarchy:
+ * Central builder for Flyway configuration that handles the two-tier configuration hierarchy:
  * 1. Deployment properties (highest priority)
  * 2. Subsystem configuration
- * 3. Auto-discovery (opt-in only)
- * 
+ *
  * This class consolidates all configuration logic that was previously spread across
  * FlywayDeploymentProcessor and FlywayMigrationService.
+ *
+ * Security: JNDI datasource names are validated against injection attacks and
+ * restricted to well-known JNDI prefixes. Property values are sanitized before
+ * entering the configuration map.
  */
 public class FlywayConfigurationBuilder {
 
@@ -46,15 +50,18 @@ public class FlywayConfigurationBuilder {
     }
     
     /**
-     * Build the complete Flyway configuration following the three-tier hierarchy.
-     * 
+     * Build the complete Flyway configuration following the two-tier hierarchy.
+     *
      * IMPORTANT: The hierarchy works as follows:
      * 1. ALWAYS start with subsystem configuration as the base
      * 2. Overlay deployment properties on top
-     * 3. Determine datasource from: deployment properties > subsystem default-datasource > auto-discovery
-     * 
+     * 3. Determine datasource from: deployment properties > subsystem default-datasource
+     *
+     * All JNDI datasource names are validated before use.
+     * All property values are sanitized to prevent injection attacks.
+     *
      * @return ConfigurationResult containing datasource JNDI name and all configuration properties
-     * @throws Exception if configuration cannot be determined
+     * @throws Exception if configuration cannot be determined or validation fails
      */
     public ConfigurationResult build() throws Exception {
         FlywayLogger.infof("Building Flyway configuration for deployment: %s", deploymentUnit.getName());
@@ -85,6 +92,7 @@ public class FlywayConfigurationBuilder {
         }
         if (ds != null && !ds.trim().isEmpty()) {
             datasourceJndiName = resolveExpression(ds);
+            validateJndiName(datasourceJndiName);
             isFromSubsystem = false;
             FlywayLogger.infof("Using datasource from deployment properties: %s", maskDataSource(datasourceJndiName));
             return createResult();
@@ -94,19 +102,14 @@ public class FlywayConfigurationBuilder {
         ds = subsystemProps.getProperty("default-datasource");
         if (ds != null && !ds.trim().isEmpty()) {
             datasourceJndiName = resolveExpression(ds);
+            validateJndiName(datasourceJndiName);
             isFromSubsystem = true;
             FlywayLogger.infof("Using default datasource from subsystem configuration: %s", maskDataSource(datasourceJndiName));
             return createResult();
         }
         
-        // 3. Try auto-discovery (only if explicitly enabled)
-        if (isAutoDiscoveryEnabled() && tryAutoDiscovery()) {
-            FlywayLogger.infof("Using auto-discovered datasource: %s", maskDataSource(datasourceJndiName));
-            return createResult();
-        }
-        
         throw new Exception("No datasource configured for Flyway. Please specify a datasource in " +
-                          "META-INF/flyway.properties, subsystem configuration, or enable auto-discovery.");
+                          "META-INF/flyway.properties or subsystem configuration.");
     }
     
     /**
@@ -154,39 +157,31 @@ public class FlywayConfigurationBuilder {
     }
     
     
-    private boolean tryAutoDiscovery() {
-        // Auto-discovery logic would go here
-        // For now, returning false as it's not implemented in the original code
-        FlywayLogger.warn("Auto-discovery not yet implemented");
-        return false;
-    }
-    
-    private boolean isAutoDiscoveryEnabled() {
-        String enabled = getPropertyValue("auto-discovery.enabled", "false");
-        return "true".equalsIgnoreCase(enabled);
-    }
     
     private void collectDeploymentProperties() {
         // Process all deployment properties
         for (String key : deploymentProperties.stringPropertyNames()) {
             String value = deploymentProperties.getProperty(key);
-            
+
             // Handle both namespaces
             if (key.startsWith("flyway.") || key.startsWith("spring.flyway.")) {
                 // Normalize to spring.flyway.*
                 String normalizedKey = normalizeKey(key);
-                
+
                 FlywayLogger.debugf("Processing deployment property: %s = %s", key, value);
-                
+
                 // Resolve expressions using WildFly's expression resolver
                 String resolvedValue = resolveExpression(value);
-                
+
+                // Sanitize the resolved value
+                resolvedValue = sanitizePropertyValue(resolvedValue);
+
                 FlywayLogger.debugf("After expression resolution: %s = %s", key, resolvedValue);
-                
+
                 // Store (will override any existing value from subsystem)
                 flywayProperties.put(normalizedKey, resolvedValue);
-                
-                FlywayLogger.debugf("Deployment property: %s = %s", normalizedKey, 
+
+                FlywayLogger.debugf("Deployment property: %s = %s", normalizedKey,
                                   key.toLowerCase().contains("password") ? "***" : resolvedValue);
             }
         }
@@ -373,6 +368,64 @@ public class FlywayConfigurationBuilder {
         return new ConfigurationResult(datasourceJndiName, flywayProperties, isFromSubsystem);
     }
     
+    // ===== JNDI Validation =====
+
+    /** Allowed JNDI prefixes for datasource names. */
+    private static final Pattern JNDI_VALID_PATTERN = Pattern.compile(
+            "^java:(jboss/datasources/|comp/env/|/)\\S+$");
+
+    /** Detects JNDI injection attempts like ${jndi:ldap://...}. */
+    private static final Pattern JNDI_INJECTION_PATTERN = Pattern.compile(
+            "\\$\\{jndi:.*}", Pattern.CASE_INSENSITIVE);
+
+    /** Detects path traversal in property values. */
+    private static final Pattern PATH_TRAVERSAL_PATTERN = Pattern.compile("\\.\\.[\\\\/]");
+
+    /**
+     * Validate a JNDI datasource name.
+     * Rejects injection attempts and enforces well-known JNDI prefixes.
+     *
+     * @param jndiName the JNDI name to validate
+     * @throws IllegalArgumentException if the name is invalid
+     */
+    static void validateJndiName(String jndiName) {
+        if (jndiName == null || jndiName.isBlank()) {
+            throw new IllegalArgumentException("JNDI datasource name must not be empty");
+        }
+        if (JNDI_INJECTION_PATTERN.matcher(jndiName).find()) {
+            throw new IllegalArgumentException(
+                    "JNDI datasource name contains a potentially malicious expression: " + jndiName);
+        }
+        if (PATH_TRAVERSAL_PATTERN.matcher(jndiName).find()) {
+            throw new IllegalArgumentException(
+                    "JNDI datasource name contains path traversal: " + jndiName);
+        }
+        if (!JNDI_VALID_PATTERN.matcher(jndiName).matches()) {
+            throw new IllegalArgumentException(
+                    "Invalid JNDI datasource name '" + jndiName + "'. " +
+                    "Expected format: java:jboss/datasources/<name>, java:comp/env/<name>, or java:/<name>");
+        }
+        FlywayLogger.debugf("JNDI name validated: %s", jndiName);
+    }
+
+    /**
+     * Sanitize a property value by removing dangerous patterns.
+     * Applies to all deployment-property values before they enter the configuration map.
+     */
+    static String sanitizePropertyValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        String sanitized = value;
+        // Remove JNDI injection attempts
+        sanitized = JNDI_INJECTION_PATTERN.matcher(sanitized).replaceAll("");
+        if (!value.equals(sanitized)) {
+            FlywayLogger.logSecurity(org.jboss.logging.Logger.Level.WARN,
+                    "Property value sanitized (JNDI injection removed), original length: %d", value.length());
+        }
+        return sanitized;
+    }
+
     private String maskDataSource(String value) {
         if (value == null || !value.contains("datasources")) {
             return value;

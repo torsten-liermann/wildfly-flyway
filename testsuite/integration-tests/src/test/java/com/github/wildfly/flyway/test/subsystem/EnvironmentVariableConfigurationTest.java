@@ -112,40 +112,63 @@ public class EnvironmentVariableConfigurationTest {
     
     @Test
     public void testEnvironmentVariableDefaults() throws Exception {
-        // This test verifies that environment variable expressions with defaults work correctly
-        // Since we're not setting any environment variables, all expressions will use their defaults:
-        // - ${env.FLYWAY_ENABLED:true} -> true
-        // - ${env.FLYWAY_DATASOURCE:java:jboss/datasources/EnvVarTestDS} -> java:jboss/datasources/EnvVarTestDS
+        // Verify that environment variable expressions with defaults resolved correctly.
+        // Since no env vars are set, defaults should be used:
+        // - ${env.FLYWAY_ENABLED:true} -> true  (Flyway ran)
+        // - ${env.FLYWAY_DATASOURCE:java:jboss/datasources/EnvVarTestDS} -> EnvVarTestDS
         // - ${env.FLYWAY_BASELINE_ON_MIGRATE:false} -> false
         // - ${env.FLYWAY_LOCATIONS:classpath:db/migration} -> classpath:db/migration
-        
-        // If we reach this point, the deployment succeeded with the default values
-        assertTrue(true, "Deployment should succeed with environment variable defaults");
+
+        Thread.sleep(2000);
+
+        InitialContext ctx = new InitialContext();
+        DataSource ds = (DataSource) ctx.lookup("java:jboss/datasources/EnvVarTestDS");
+
+        try (Connection conn = ds.getConnection()) {
+            // The schema history table must exist (proves defaults resolved correctly)
+            DatabaseMetaData metaData = conn.getMetaData();
+            List<String> tables = getTableNames(metaData);
+            boolean hasSchemaHistory = tables.contains("FLYWAY_SCHEMA_HISTORY") ||
+                                     tables.contains("flyway_schema_history");
+            assertTrue(hasSchemaHistory,
+                    "Flyway schema history table should exist when defaults resolve correctly");
+
+            // Verify default locations worked (db/migration was found)
+            // Use the actual table name present in the database
+            String schemaTable = tables.contains("FLYWAY_SCHEMA_HISTORY")
+                    ? "FLYWAY_SCHEMA_HISTORY" : "flyway_schema_history";
+            try (var stmt = conn.createStatement();
+                 var rs = stmt.executeQuery(
+                         "SELECT COUNT(*) FROM \"" + schemaTable + "\" WHERE \"type\" = 'SQL'")) {
+                assertTrue(rs.next(), "Schema history should have entries");
+                assertTrue(rs.getInt(1) > 0,
+                        "SQL migration should be recorded, proving default locations resolved");
+            }
+        } catch (Exception e) {
+            fail("Failed to verify environment variable defaults: " + e.getMessage());
+        }
     }
-    
+
     @Test
-    public void testCloudNativePattern() throws Exception {
-        // This test documents the cloud-native pattern for using environment variables:
-        
-        // 1. In deployment properties (META-INF/flyway.properties):
-        //    spring.flyway.datasource=${env.FLYWAY_DATASOURCE}
-        //    spring.flyway.baseline-on-migrate=${env.FLYWAY_BASELINE:false}
-        //    spring.flyway.locations=${env.FLYWAY_LOCATIONS:classpath:db/migration}
-        
-        // 2. Or in subsystem configuration (standalone.xml):
-        //    <subsystem xmlns="urn:wildfly:flyway:1.0"
-        //               default-datasource="${env.FLYWAY_DATASOURCE}"
-        //               baseline-on-migrate="${env.FLYWAY_BASELINE:false}"
-        //               locations="${env.FLYWAY_LOCATIONS:classpath:db/migration}"/>
-        
-        // 3. Environment variables set in container/kubernetes:
-        //    FLYWAY_DATASOURCE=java:jboss/datasources/ProductionDS
-        //    FLYWAY_BASELINE=true
-        //    FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/patches
-        
-        // Both approaches support expression resolution!
-        
-        assertTrue(true, "Cloud-native pattern is properly documented");
+    public void testMigrationUsedCorrectDatasource() throws Exception {
+        // Verify the cloud-native pattern works end-to-end:
+        // The deployment used ${env.FLYWAY_DATASOURCE:java:jboss/datasources/EnvVarTestDS}
+        // which should have resolved to EnvVarTestDS and the migration data should be there.
+
+        Thread.sleep(2000);
+
+        InitialContext ctx = new InitialContext();
+        DataSource ds = (DataSource) ctx.lookup("java:jboss/datasources/EnvVarTestDS");
+
+        try (Connection conn = ds.getConnection();
+             var stmt = conn.createStatement();
+             var rs = stmt.executeQuery("SELECT config_type FROM env_var_test WHERE id = 1")) {
+            assertTrue(rs.next(), "env_var_test should contain data");
+            assertEquals("environment-variable", rs.getString(1),
+                    "Data should match, proving the correct datasource was used via expression resolution");
+        } catch (Exception e) {
+            fail("Failed to verify datasource resolution: " + e.getMessage());
+        }
     }
     
     private List<String> getTableNames(DatabaseMetaData metaData) throws Exception {

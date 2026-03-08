@@ -77,7 +77,6 @@ The subsystem uses a three-level configuration hierarchy:
 3. **Datasource Resolution**:
    - From application properties (highest priority)
    - From subsystem `default-datasource`
-   - Auto-discovery (only if explicitly enabled)
 
 ### Application Configuration
 
