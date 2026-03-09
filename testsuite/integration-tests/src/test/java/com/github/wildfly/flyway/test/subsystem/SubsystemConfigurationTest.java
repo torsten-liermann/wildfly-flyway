@@ -190,8 +190,13 @@ public class SubsystemConfigurationTest {
 
     /**
      * Sets the subsystem {@code table} attribute to {@code subsystem_cfg_history}
-     * before the deployment is processed. This creates a non-default subsystem
-     * baseline that the deployment property must override.
+     * and reloads the server so that {@link com.github.wildfly.flyway.config.SubsystemConfigurationHolder}
+     * is populated with the new value during boot.
+     *
+     * Without the reload, the attribute change would only be persisted in the
+     * management model but not visible to {@code FlywayConfigurationBuilder},
+     * because the holder is populated in the {@code SubsystemAdd} handler
+     * which only runs during the boot phase.
      */
     static class SubsystemTableSetup implements ServerSetupTask {
         @Override
@@ -206,6 +211,12 @@ public class SubsystemConfigurationTest {
             ModelNode result = managementClient.getControllerClient().execute(writeOp);
             assertEquals("success", result.get("outcome").asString(),
                     "Setting subsystem table attribute should succeed; result: " + result);
+
+            // Reload the server so SubsystemConfigurationHolder picks up the new value.
+            // The ReloadRequiredWriteAttributeHandler marks the server as reload-required;
+            // an actual reload re-runs SubsystemAdd.performBoottime() which populates
+            // the holder with the updated attribute values.
+            reloadServer(managementClient);
         }
 
         @Override
@@ -217,6 +228,37 @@ public class SubsystemConfigurationTest {
             undefineOp.get("name").set("table");
 
             managementClient.getControllerClient().execute(undefineOp);
+
+            // Reload to restore default SubsystemConfigurationHolder state
+            reloadServer(managementClient);
+        }
+
+        private void reloadServer(ManagementClient managementClient) throws Exception {
+            ModelNode reloadOp = new ModelNode();
+            reloadOp.get("operation").set("reload");
+
+            managementClient.getControllerClient().execute(reloadOp);
+
+            // Wait for the server to complete the reload
+            long deadline = System.currentTimeMillis() + 30_000;
+            boolean running = false;
+            while (System.currentTimeMillis() < deadline) {
+                Thread.sleep(500);
+                try {
+                    ModelNode stateOp = new ModelNode();
+                    stateOp.get("operation").set("read-attribute");
+                    stateOp.get("name").set("server-state");
+                    ModelNode stateResult = managementClient.getControllerClient().execute(stateOp);
+                    if ("success".equals(stateResult.get("outcome").asString())
+                            && "running".equals(stateResult.get("result").asString())) {
+                        running = true;
+                        break;
+                    }
+                } catch (Exception ignored) {
+                    // Server may not be reachable during reload — retry
+                }
+            }
+            assertTrue(running, "Server should be running after reload");
         }
     }
 }
