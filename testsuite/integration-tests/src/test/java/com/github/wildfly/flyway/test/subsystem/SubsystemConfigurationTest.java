@@ -2,6 +2,10 @@ package com.github.wildfly.flyway.test.subsystem;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit5.ArquillianExtension;
+import org.jboss.as.arquillian.api.ServerSetup;
+import org.jboss.as.arquillian.api.ServerSetupTask;
+import org.jboss.as.arquillian.container.ManagementClient;
+import org.jboss.dmr.ModelNode;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
@@ -24,14 +28,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Test that verifies deployment properties are applied to Flyway configuration.
+ * Test that verifies deployment properties override subsystem configuration.
  *
- * This test specifically validates that:
- * 1. Flyway properties from META-INF/flyway.properties are applied
- * 2. The schema history table name can be overridden via deployment properties
- * 3. The datasource from deployment properties is used
+ * The {@link SubsystemTableSetup} task sets the subsystem attribute
+ * {@code table=subsystem_cfg_history} via the management API. The deployment
+ * then sets {@code spring.flyway.table=deployment_cfg_history} in its
+ * flyway.properties. If the two-tier priority (deployment > subsystem) works
+ * correctly, the schema history table must be named
+ * {@code deployment_cfg_history}, NOT {@code subsystem_cfg_history}.
+ *
+ * This test would fail if:
+ * <ul>
+ *   <li>Deployment properties were silently ignored</li>
+ *   <li>Subsystem configuration incorrectly took priority over deployment</li>
+ * </ul>
  */
 @ExtendWith(ArquillianExtension.class)
+@ServerSetup(SubsystemConfigurationTest.SubsystemTableSetup.class)
 public class SubsystemConfigurationTest {
 
     @Deployment
@@ -58,13 +71,12 @@ public class SubsystemConfigurationTest {
                 name VARCHAR(100) NOT NULL,
                 config_source VARCHAR(50) NOT NULL
             );
-            INSERT INTO subsystem_config_test (id, name, config_source) VALUES (1, 'test', 'subsystem');
+            INSERT INTO subsystem_config_test (id, name, config_source) VALUES (1, 'test', 'deployment');
             """;
 
-        // Deployment properties override the default schema history table name.
-        // The Flyway default is "flyway_schema_history". By setting a different name
-        // here, we can verify that deployment properties are actually applied to
-        // the Flyway configuration — the history table must use the overridden name.
+        // Deployment property overrides the subsystem table attribute.
+        // The subsystem sets table=subsystem_cfg_history (via ServerSetupTask).
+        // This deployment overrides it to deployment_cfg_history.
         String flywayProperties = """
             spring.flyway.enabled=true
             spring.flyway.datasource=java:jboss/datasources/SubsystemTestDS
@@ -108,15 +120,18 @@ public class SubsystemConfigurationTest {
     }
 
     @Test
-    public void testDeploymentPropertiesOverrideDefaults() throws Exception {
-        // Verify that deployment properties actually affect Flyway configuration.
+    public void testDeploymentPropertiesOverrideSubsystem() throws Exception {
+        // Verify that deployment properties override subsystem defaults.
         //
-        // The deployment sets spring.flyway.table=deployment_cfg_history, overriding
-        // the Flyway default "flyway_schema_history". If this property is correctly
-        // applied, the schema history table must be named DEPLOYMENT_CFG_HISTORY
-        // (H2 uppercases by default), and the default FLYWAY_SCHEMA_HISTORY must
-        // NOT exist. This test would fail if deployment properties were silently
-        // ignored.
+        // Setup:
+        //   Subsystem attribute table = "subsystem_cfg_history" (set by ServerSetupTask)
+        //   Deployment property spring.flyway.table = "deployment_cfg_history"
+        //
+        // Expected:
+        //   The actual history table must be "deployment_cfg_history" (deployment wins)
+        //   The subsystem table "subsystem_cfg_history" must NOT exist
+        //
+        // This test would fail if subsystem config took priority over deployment props.
 
         Thread.sleep(2000);
 
@@ -127,19 +142,28 @@ public class SubsystemConfigurationTest {
             DatabaseMetaData metaData = conn.getMetaData();
             List<String> tables = getTableNames(metaData);
 
-            // The overridden history table must exist (Flyway writes the name as-is,
-            // so it may be lowercase or uppercase depending on the database)
-            boolean hasOverriddenTable = tables.contains("DEPLOYMENT_CFG_HISTORY")
+            // The deployment-overridden table must exist
+            boolean hasDeploymentTable = tables.contains("DEPLOYMENT_CFG_HISTORY")
                     || tables.contains("deployment_cfg_history");
-            assertTrue(hasOverriddenTable,
-                    "Schema history table should use the name from deployment properties " +
-                    "(spring.flyway.table=deployment_cfg_history); actual tables: " + tables);
+            assertTrue(hasDeploymentTable,
+                    "Schema history table should use the deployment property value " +
+                    "(spring.flyway.table=deployment_cfg_history), " +
+                    "proving deployment properties override subsystem config; " +
+                    "actual tables: " + tables);
 
-            // The Flyway default table name must NOT exist — proves the override took effect
+            // The subsystem-configured table must NOT exist
+            assertFalse(tables.contains("SUBSYSTEM_CFG_HISTORY")
+                        || tables.contains("subsystem_cfg_history"),
+                    "Subsystem-configured table name (subsystem_cfg_history) should NOT exist " +
+                    "when deployment properties override subsystem config; " +
+                    "actual tables: " + tables);
+
+            // The Flyway hardcoded default should also not exist
             assertFalse(tables.contains("FLYWAY_SCHEMA_HISTORY")
                         || tables.contains("flyway_schema_history"),
-                    "Default Flyway schema history table should NOT exist when " +
-                    "deployment properties override the table name; actual tables: " + tables);
+                    "Default Flyway schema history table should NOT exist " +
+                    "when deployment properties set a custom table name; " +
+                    "actual tables: " + tables);
 
             // Verify migration was recorded in the overridden table
             String historyTable = tables.contains("DEPLOYMENT_CFG_HISTORY")
@@ -149,7 +173,7 @@ public class SubsystemConfigurationTest {
                          "SELECT COUNT(*) FROM \"" + historyTable + "\" WHERE \"version\" = '1'")) {
                 assertTrue(rs.next(), "History table should have entries");
                 assertTrue(rs.getInt(1) > 0,
-                        "Migration V1 should be recorded in the overridden history table");
+                        "Migration V1 should be recorded in the deployment-overridden history table");
             }
         }
     }
@@ -162,5 +186,37 @@ public class SubsystemConfigurationTest {
             }
         }
         return tables;
+    }
+
+    /**
+     * Sets the subsystem {@code table} attribute to {@code subsystem_cfg_history}
+     * before the deployment is processed. This creates a non-default subsystem
+     * baseline that the deployment property must override.
+     */
+    static class SubsystemTableSetup implements ServerSetupTask {
+        @Override
+        public void setup(ManagementClient managementClient, String containerId) throws Exception {
+            // Set subsystem table attribute to a non-default value
+            ModelNode writeOp = new ModelNode();
+            writeOp.get("operation").set("write-attribute");
+            writeOp.get("address").add("subsystem", "flyway");
+            writeOp.get("name").set("table");
+            writeOp.get("value").set("subsystem_cfg_history");
+
+            ModelNode result = managementClient.getControllerClient().execute(writeOp);
+            assertEquals("success", result.get("outcome").asString(),
+                    "Setting subsystem table attribute should succeed; result: " + result);
+        }
+
+        @Override
+        public void tearDown(ManagementClient managementClient, String containerId) throws Exception {
+            // Reset to default
+            ModelNode undefineOp = new ModelNode();
+            undefineOp.get("operation").set("undefine-attribute");
+            undefineOp.get("address").add("subsystem", "flyway");
+            undefineOp.get("name").set("table");
+
+            managementClient.getControllerClient().execute(undefineOp);
+        }
     }
 }
