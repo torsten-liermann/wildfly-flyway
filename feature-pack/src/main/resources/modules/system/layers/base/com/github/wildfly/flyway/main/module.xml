@@ -18,7 +18,6 @@
         <module name="org.jboss.msc"/>
         <module name="org.jboss.staxmapper"/>
         <module name="org.jboss.vfs"/>
-        <module name="org.wildfly.security.elytron"/>
         <module name="org.wildfly.common"/>
     </dependencies>
 </module>
