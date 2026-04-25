@@ -135,28 +135,13 @@ public class FlywayMigrationService implements Service {
             return;
         }
 
+        // Migrations run synchronously inside start(); MSC has already returned from start
+        // before stop() is invoked, so migrationInProgress is always false here. Clearing
+        // resources directly avoids blocking the MSC stop thread on a redundant poll loop.
         lock.writeLock().lock();
         try {
             FlywayLogger.infof("Stopping Flyway migration service for deployment: %s", deploymentName);
 
-            // Wait for any ongoing migration to complete
-            int waitCount = 0;
-            while (migrationInProgress.get() && waitCount < 30) {
-                FlywayLogger.debugf("Waiting for migration to complete before stopping...");
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-                waitCount++;
-            }
-
-            if (migrationInProgress.get()) {
-                FlywayLogger.warnf("Migration still in progress after 30 seconds, forcing stop");
-            }
-
-            // Clear resources
             flyway = null;
             lastMigrationResult = null;
 
