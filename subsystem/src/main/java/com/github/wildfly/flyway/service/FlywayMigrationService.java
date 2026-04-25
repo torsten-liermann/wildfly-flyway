@@ -8,7 +8,7 @@ import org.flywaydb.core.api.FlywayException;
 import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.flywaydb.core.api.output.MigrateResult;
-import org.jboss.as.controller.services.path.PathManager;
+import org.jboss.msc.Service;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -28,13 +27,12 @@ import java.util.function.Supplier;
  * This service is only responsible for executing migrations - all configuration
  * logic is handled by FlywayDeploymentProcessor and FlywayConfigurationBuilder.
  */
-public class FlywayMigrationService {
+public class FlywayMigrationService implements Service {
 
     private static final int MAX_RETRY_ATTEMPTS = 3;
     private static final int CONNECTION_TIMEOUT_SECONDS = 30;
 
     private final String deploymentName;
-    private final Consumer<FlywayMigrationService> serviceConsumer;
     private final Supplier<DataSource> dataSourceSupplier;
     private final ClassLoader deploymentClassLoader;
     private final ConfigurationResult configuration;
@@ -48,18 +46,16 @@ public class FlywayMigrationService {
     private volatile MigrateResult lastMigrationResult;
 
     public FlywayMigrationService(String deploymentName,
-                                  Consumer<FlywayMigrationService> serviceConsumer,
                                   Supplier<DataSource> dataSourceSupplier,
-                                  Supplier<PathManager> pathManagerSupplier,
                                   ClassLoader deploymentClassLoader,
                                   ConfigurationResult configuration) {
         this.deploymentName = deploymentName;
-        this.serviceConsumer = serviceConsumer;
         this.dataSourceSupplier = dataSourceSupplier;
         this.deploymentClassLoader = deploymentClassLoader;
         this.configuration = configuration;
     }
 
+    @Override
     public void start(StartContext context) throws StartException {
         if (!started.compareAndSet(false, true)) {
             FlywayLogger.warnf("Flyway migration service already started for deployment: %s", deploymentName);
@@ -70,12 +66,12 @@ public class FlywayMigrationService {
 
         lock.writeLock().lock();
         try {
-            // Get datasource 
+            // Get datasource
             DataSource dataSource = dataSourceSupplier.get();
             if (dataSource == null) {
                 throw new StartException("DataSource is not available for deployment: " + deploymentName);
             }
-            
+
             FlywayLogger.infof("DataSource obtained successfully for deployment: %s", deploymentName);
 
             // Test database connection with timeout
@@ -92,7 +88,7 @@ public class FlywayMigrationService {
 
             // Configure Flyway
             FluentConfiguration flywayConfig;
-            
+
             // Use deployment classloader if available
             if (deploymentClassLoader != null) {
                 flywayConfig = Flyway.configure(deploymentClassLoader);
@@ -101,7 +97,7 @@ public class FlywayMigrationService {
                 flywayConfig = Flyway.configure();
             }
             flywayConfig.connectRetries(MAX_RETRY_ATTEMPTS);
-            
+
             // Apply configuration from ConfigurationResult
             FlywayConfigurationBuilder.applyToFlyway(flywayConfig, dataSource, deploymentClassLoader, properties);
 
@@ -115,8 +111,6 @@ public class FlywayMigrationService {
 
             // Execute migration
             executeMigration();
-
-            serviceConsumer.accept(this);
 
         } catch (StartException e) {
             started.set(false); // Reset on failure
@@ -134,6 +128,7 @@ public class FlywayMigrationService {
         }
     }
 
+    @Override
     public void stop(StopContext context) {
         if (!started.compareAndSet(true, false)) {
             FlywayLogger.debugf("Flyway migration service already stopped for deployment: %s", deploymentName);
@@ -164,8 +159,6 @@ public class FlywayMigrationService {
             // Clear resources
             flyway = null;
             lastMigrationResult = null;
-
-            serviceConsumer.accept(null);
 
         } finally {
             lock.writeLock().unlock();
@@ -205,12 +198,12 @@ public class FlywayMigrationService {
             if (!connection.isValid(CONNECTION_TIMEOUT_SECONDS)) {
                 throw new StartException("Database connection is not valid");
             }
-            
+
             // Log database info for debugging
             String databaseProductName = connection.getMetaData().getDatabaseProductName();
             String databaseVersion = connection.getMetaData().getDatabaseProductVersion();
             FlywayLogger.debugf("Connected to %s version %s", databaseProductName, databaseVersion);
-            
+
         } catch (SQLException e) {
             throw new StartException("Failed to test database connection", e);
         }

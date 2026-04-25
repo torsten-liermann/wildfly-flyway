@@ -4,8 +4,6 @@ import com.github.wildfly.flyway.config.FlywayConfigurationBuilder;
 import com.github.wildfly.flyway.config.FlywayConfigurationBuilder.ConfigurationResult;
 import com.github.wildfly.flyway.logging.FlywayLogger;
 import com.github.wildfly.flyway.service.FlywayMigrationService;
-import org.jboss.as.controller.capability.CapabilityServiceSupport;
-import org.jboss.as.controller.services.path.PathManager;
 import org.jboss.as.naming.ManagedReferenceFactory;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
@@ -13,21 +11,15 @@ import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.server.deployment.module.ResourceRoot;
-import org.jboss.msc.service.Service;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
-import org.jboss.msc.service.StartContext;
-import org.jboss.msc.service.StartException;
-import org.jboss.msc.service.StopContext;
 import org.jboss.vfs.VirtualFile;
 
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Map;
 import java.util.Properties;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -38,8 +30,6 @@ import java.util.function.Supplier;
  * 3. Creating the FlywayMigrationService with the resolved configuration
  */
 public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
-
-    private static final String PATH_MANAGER_CAPABILITY = "org.wildfly.management.path-manager";
 
     @Override
     public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
@@ -180,127 +170,50 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
     /**
      * Create the Flyway migration service
      */
-    private void createMigrationService(DeploymentPhaseContext phaseContext, 
+    private void createMigrationService(DeploymentPhaseContext phaseContext,
                                       DeploymentUnit deploymentUnit,
                                       ConfigurationResult config) throws DeploymentUnitProcessingException {
-        
+
         final ServiceTarget serviceTarget = phaseContext.getRequirementServiceTarget();
         final ServiceName serviceName = deploymentUnit.getServiceName().append("flyway", "migration");
 
-        // Get capability support
-        CapabilityServiceSupport capabilitySupport = deploymentUnit.getAttachment(
-                org.jboss.as.server.deployment.Attachments.CAPABILITY_SERVICE_SUPPORT
-        );
-
-        // Get the datasource service name
-        // Use capability to get the proper service name for the datasource
-        String jndiName = config.getDatasourceJndiName();
-        ServiceName dataSourceServiceName;
-        
-        // For datasources deployed with the application, we need to use the bind info
-        // For global datasources, we can use the capability
-        String dsName = extractDataSourceName(jndiName);
-        
-        // First try the bind info approach (works for deployment-specific datasources)
-        ContextNames.BindInfo bindInfo = ContextNames.bindInfoFor(jndiName);
-        dataSourceServiceName = bindInfo.getBinderServiceName();
-        
-        FlywayLogger.infof("Using datasource service name: %s for JNDI name: %s", 
+        // Resolve the datasource binder service name from its JNDI name
+        final String jndiName = config.getDatasourceJndiName();
+        final ServiceName dataSourceServiceName = ContextNames.bindInfoFor(jndiName).getBinderServiceName();
+        FlywayLogger.infof("Using datasource service name: %s for JNDI name: %s",
                          dataSourceServiceName, jndiName);
 
-        // Get the classloader
-        ClassLoader deploymentClassLoader = deploymentUnit.getAttachment(
+        // Get the deployment classloader
+        final ClassLoader deploymentClassLoader = deploymentUnit.getAttachment(
                 org.jboss.as.server.deployment.Attachments.MODULE
         ).getClassLoader();
 
-        // Create wrapper service for WildFly 28 compatibility
-        final FlywayMigrationService[] serviceHolder = new FlywayMigrationService[1];
-        Service<Void> wrapperService = new Service<Void>() {
-            @Override
-            public void start(StartContext context) throws StartException {
-                serviceHolder[0].start(context);
-            }
-
-            @Override
-            public void stop(StopContext context) {
-                if (serviceHolder[0] != null) {
-                    serviceHolder[0].stop(context);
-                }
-            }
-            
-            @Override
-            public Void getValue() throws IllegalStateException, IllegalArgumentException {
-                return null;
-            }
-        };
-
-        // Build the service
-        ServiceBuilder<?> serviceBuilder = serviceTarget.addService(serviceName, wrapperService);
-
-        // Add capability requirements
-        serviceBuilder.requires(capabilitySupport.getCapabilityServiceName(PATH_MANAGER_CAPABILITY));
-
-        // Create suppliers and consumers
-        Consumer<FlywayMigrationService> serviceConsumer = service -> {
-            serviceHolder[0] = service;
-        };
-
-        // Add a dependency on the datasource's reference factory service
-        // The binder service name already provides access to the ManagedReferenceFactory
+        // Build the service: declare the datasource binder dependency, install the migration service.
+        ServiceBuilder<?> serviceBuilder = serviceTarget.addService(serviceName);
         Supplier<ManagedReferenceFactory> dataSourceRefSupplier = serviceBuilder.requires(dataSourceServiceName);
-        
-        Supplier<PathManager> pathManagerSupplier = serviceBuilder.requires(
-                capabilitySupport.getCapabilityServiceName(PATH_MANAGER_CAPABILITY)
-        );
 
-        // Create a wrapper supplier that extracts the DataSource from the reference
+        // Wrap the binder reference into a DataSource supplier
         Supplier<DataSource> dataSourceSupplier = () -> {
-            try {
-                ManagedReferenceFactory factory = dataSourceRefSupplier.get();
-                if (factory != null) {
-                    Object reference = factory.getReference().getInstance();
-                    if (reference instanceof DataSource) {
-                        return (DataSource) reference;
-                    }
+            ManagedReferenceFactory factory = dataSourceRefSupplier.get();
+            if (factory != null) {
+                Object reference = factory.getReference().getInstance();
+                if (reference instanceof DataSource) {
+                    return (DataSource) reference;
                 }
-                throw new RuntimeException("Failed to obtain DataSource from reference factory");
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to get DataSource reference", e);
             }
+            throw new RuntimeException("Failed to obtain DataSource from reference factory");
         };
-        
-        // Create the migration service with complete configuration
+
         FlywayMigrationService migrationService = new FlywayMigrationService(
                 deploymentUnit.getName(),
-                serviceConsumer,
                 dataSourceSupplier,
-                pathManagerSupplier,
                 deploymentClassLoader,
                 config
         );
 
-        // Set initial reference
-        serviceHolder[0] = migrationService;
-
-        // Install the service
+        serviceBuilder.setInstance(migrationService);
         serviceBuilder.install();
 
         FlywayLogger.infof("Created Flyway migration service for deployment: %s", deploymentUnit.getName());
-    }
-    
-    /**
-     * Extract the datasource name from a JNDI name.
-     * For example: "java:jboss/datasources/ExampleDS" -> "ExampleDS"
-     */
-    private String extractDataSourceName(String jndiName) {
-        // Remove common prefixes
-        if (jndiName.startsWith("java:jboss/datasources/")) {
-            return jndiName.substring("java:jboss/datasources/".length());
-        } else if (jndiName.startsWith("java:/")) {
-            return jndiName.substring("java:/".length());
-        } else if (jndiName.contains("/")) {
-            return jndiName.substring(jndiName.lastIndexOf('/') + 1);
-        }
-        return jndiName;
     }
 }
