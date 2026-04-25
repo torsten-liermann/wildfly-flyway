@@ -76,7 +76,7 @@ public class FlywayManagementResourceDefinition extends SimpleResourceDefinition
     @Override
     public void registerAttributes(ManagementResourceRegistration resourceRegistration) {
         for (AttributeDefinition attr : ATTRIBUTES) {
-            resourceRegistration.registerReadWriteAttribute(attr, null, new ReloadRequiredWriteAttributeHandler(attr));
+            resourceRegistration.registerReadWriteAttribute(attr, null, ReloadRequiredWriteAttributeHandler.INSTANCE);
         }
     }
     
@@ -94,7 +94,7 @@ public class FlywayManagementResourceDefinition extends SimpleResourceDefinition
         static final FlywayMigrationAddHandler INSTANCE = new FlywayMigrationAddHandler();
         
         private FlywayMigrationAddHandler() {
-            super(ATTRIBUTES);
+            super();
         }
         
         @Override

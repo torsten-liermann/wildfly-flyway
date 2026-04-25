@@ -100,7 +100,7 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
     public void registerAttributes(ManagementResourceRegistration resourceRegistration) {
         // Register the attributes for read/write
         for (AttributeDefinition attr : ATTRIBUTES) {
-            resourceRegistration.registerReadWriteAttribute(attr, null, new ReloadRequiredWriteAttributeHandler(attr));
+            resourceRegistration.registerReadWriteAttribute(attr, null, ReloadRequiredWriteAttributeHandler.INSTANCE);
         }
     }
     
@@ -127,7 +127,7 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
         static final FlywaySubsystemAdd INSTANCE = new FlywaySubsystemAdd();
         
         private FlywaySubsystemAdd() {
-            super(ATTRIBUTES);
+            super();
         }
         
         @Override

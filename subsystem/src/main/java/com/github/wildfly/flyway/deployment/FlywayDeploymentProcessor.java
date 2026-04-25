@@ -184,7 +184,7 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
                                       DeploymentUnit deploymentUnit,
                                       ConfigurationResult config) throws DeploymentUnitProcessingException {
         
-        final ServiceTarget serviceTarget = phaseContext.getServiceTarget();
+        final ServiceTarget serviceTarget = phaseContext.getRequirementServiceTarget();
         final ServiceName serviceName = deploymentUnit.getServiceName().append("flyway", "migration");
 
         // Get capability support
