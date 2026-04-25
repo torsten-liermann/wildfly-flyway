@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module name="org.flywaydb.database.oracle" xmlns="urn:jboss:module:1.9">
+    <resources>
+        <artifact name="${org.flywaydb:flyway-database-oracle}"/>
+    </resources>
+    <dependencies>
+        <module name="java.logging"/>
+        <module name="java.sql"/>
+        <module name="org.flywaydb.core" services="export"/>
+    </dependencies>
+</module>

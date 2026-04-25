@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module name="org.flywaydb.database.postgresql" xmlns="urn:jboss:module:1.9">
+    <resources>
+        <artifact name="${org.flywaydb:flyway-database-postgresql}"/>
+    </resources>
+    <dependencies>
+        <module name="java.sql"/>
+        <module name="org.flywaydb.core" services="export"/>
+    </dependencies>
+</module>

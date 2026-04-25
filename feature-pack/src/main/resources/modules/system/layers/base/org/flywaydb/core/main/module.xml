@@ -15,5 +15,9 @@
         <module name="com.fasterxml.jackson.core.jackson-core"/>
         <module name="com.fasterxml.jackson.core.jackson-annotations"/>
         <module name="org.jboss.vfs"/>
+        <module name="org.flywaydb.database.postgresql" services="import" optional="true"/>
+        <module name="org.flywaydb.database.mysql" services="import" optional="true"/>
+        <module name="org.flywaydb.database.oracle" services="import" optional="true"/>
+        <module name="org.flywaydb.database.sqlserver" services="import" optional="true"/>
     </dependencies>
 </module>

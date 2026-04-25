@@ -29,5 +29,9 @@
     <packages>
         <package name="com.github.wildfly.flyway"/>
         <package name="org.flywaydb.core"/>
+        <package name="org.flywaydb.database.postgresql"/>
+        <package name="org.flywaydb.database.mysql"/>
+        <package name="org.flywaydb.database.oracle"/>
+        <package name="org.flywaydb.database.sqlserver"/>
     </packages>
 </layer-spec>
