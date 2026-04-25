@@ -24,19 +24,19 @@ public class FlywayMigrateOperation implements OperationStepHandler {
     
     private static final SimpleAttributeDefinition TARGET = new SimpleAttributeDefinitionBuilder("target", ModelType.STRING)
             .setRequired(false)
-            .setAllowExpression(false)
+            .setAllowExpression(true)
             .build();
     
     private static final SimpleAttributeDefinition OUT_OF_ORDER = new SimpleAttributeDefinitionBuilder("out-of-order", ModelType.BOOLEAN)
             .setRequired(false)
             .setDefaultValue(ModelNode.FALSE)
-            .setAllowExpression(false)
+            .setAllowExpression(true)
             .build();
     
     private static final SimpleAttributeDefinition SKIP_EXECUTING_MIGRATIONS = new SimpleAttributeDefinitionBuilder("skip-executing-migrations", ModelType.BOOLEAN)
             .setRequired(false)
             .setDefaultValue(ModelNode.FALSE)
-            .setAllowExpression(false)
+            .setAllowExpression(true)
             .build();
     
     static final SimpleOperationDefinition DEFINITION = new SimpleOperationDefinitionBuilder("migrate", 
