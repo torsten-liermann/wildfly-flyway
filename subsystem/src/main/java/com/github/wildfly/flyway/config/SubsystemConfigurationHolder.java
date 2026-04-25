@@ -6,12 +6,23 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Holds subsystem configuration read during the boot phase.
  *
- * The SubsystemAdd handler populates this holder with resolved attribute values
+ * <p>The SubsystemAdd handler populates this holder with resolved attribute values
  * during server startup. The FlywayConfigurationBuilder reads from it during
- * deployment processing.
+ * deployment processing.</p>
  *
- * This replaces the previous approach of reading the management model via
- * ModelControllerClient, which was removed in WildFly 35.
+ * <p>This replaces the previous approach of reading the management model via
+ * ModelControllerClient, which was removed in WildFly 35.</p>
+ *
+ * <h2>Lifecycle</h2>
+ * <ul>
+ *   <li>Populated in {@code FlywaySubsystemAdd.performBoottime(...)} on server boot.</li>
+ *   <li>Re-populated on every reload that re-runs the boot phase. Runtime
+ *       attribute writes are flagged {@code reload-required}; they only become
+ *       visible to deployments after a reload re-invokes {@code performBoottime}.</li>
+ *   <li>Subsystem-Remove deliberately does <strong>not</strong> clear the holder:
+ *       deployment services installed under the previous subsystem may still
+ *       observe it, and the next subsystem-add overwrites it atomically.</li>
+ * </ul>
  */
 public final class SubsystemConfigurationHolder {
 
@@ -42,10 +53,4 @@ public final class SubsystemConfigurationHolder {
         return copy;
     }
 
-    /**
-     * Clear the configuration. Called from SubsystemRemove during shutdown.
-     */
-    public static void clear() {
-        CONFIGURATION.set(new Properties());
-    }
 }

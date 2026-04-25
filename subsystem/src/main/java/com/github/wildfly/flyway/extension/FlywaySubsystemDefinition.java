@@ -169,17 +169,17 @@ public class FlywaySubsystemDefinition extends SimpleResourceDefinition {
     
     /**
      * Handler for removing the subsystem.
+     *
+     * Intentionally does not clear {@link SubsystemConfigurationHolder}: the holder is a
+     * boot-phase artefact and may still be queried by Flyway deployment services that
+     * were installed under the previous subsystem instance. The next subsystem add will
+     * overwrite the holder atomically. JVM shutdown discards the static state.
      */
     static class FlywaySubsystemRemove extends AbstractRemoveStepHandler {
-        
+
         static final FlywaySubsystemRemove INSTANCE = new FlywaySubsystemRemove();
-        
+
         private FlywaySubsystemRemove() {
-        }
-        
-        @Override
-        protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) {
-            SubsystemConfigurationHolder.clear();
         }
     }
 }
