@@ -1,4 +1,4 @@
-<build xmlns="urn:wildfly:feature-pack-build:3.3" producer="com.github.wildfly.flyway:wildfly-flyway-galleon-pack">
+<build xmlns="urn:wildfly:feature-pack-build:3.3" producer="com.github.wildfly.flyway:wildfly-flyway-feature-pack">
     <transitive>
         <dependency group-id="org.wildfly" artifact-id="wildfly-ee-galleon-pack">
             <name>org.wildfly:wildfly-ee-galleon-pack</name>
