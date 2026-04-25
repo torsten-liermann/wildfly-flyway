@@ -17,7 +17,6 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -32,7 +31,6 @@ import java.util.function.Supplier;
 public class FlywayMigrationService {
 
     private static final int MAX_RETRY_ATTEMPTS = 3;
-    private static final long RETRY_DELAY_MS = 1000;
     private static final int CONNECTION_TIMEOUT_SECONDS = 30;
 
     private final String deploymentName;
@@ -45,9 +43,6 @@ public class FlywayMigrationService {
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean migrationInProgress = new AtomicBoolean(false);
-
-    // Cache for migration results
-    private final Map<String, MigrationInfo[]> migrationCache = new ConcurrentHashMap<>();
 
     private volatile Flyway flyway;
     private volatile MigrateResult lastMigrationResult;
@@ -169,7 +164,6 @@ public class FlywayMigrationService {
             // Clear resources
             flyway = null;
             lastMigrationResult = null;
-            migrationCache.clear();
 
             serviceConsumer.accept(null);
 
@@ -259,9 +253,6 @@ public class FlywayMigrationService {
                         }
                     }
                 }
-
-                // Cache migration info
-                migrationCache.put(deploymentName, flyway.info().all());
             } else {
                 FlywayLogger.errorf("Migration failed for deployment: %s", deploymentName);
                 throw new StartException("Migration execution failed");
