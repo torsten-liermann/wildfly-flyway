@@ -461,6 +461,14 @@ public class FlywayConfiguration {
     private String getProperty(String key) {
         return properties.get(key);
     }
+
+    /**
+     * Returns the built-in default value for the given Flyway property key, or {@code null}
+     * if the key has no default. This is the same map that {@link #applyDefaults()} consults.
+     */
+    public static String getDefault(String key) {
+        return DEFAULTS.get(key);
+    }
     
     private boolean getBoolean(String key) {
         String value = getProperty(key);
