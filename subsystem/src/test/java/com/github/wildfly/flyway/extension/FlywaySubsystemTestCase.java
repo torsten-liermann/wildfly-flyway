@@ -170,6 +170,36 @@ public class FlywaySubsystemTestCase extends AbstractSubsystemBaseTest {
     }
 
     /**
+     * Regression test for HIGH-3: a boolean attribute that holds a WildFly
+     * expression must round-trip through the writer without being evaluated.
+     * The previous writer used {@code asBoolean()} on the model node, which
+     * throws {@link IllegalArgumentException} for {@code ModelType.EXPRESSION}.
+     */
+    @Test
+    public void testBooleanExpressionRoundTrip() throws Exception {
+        String xml = "<subsystem xmlns=\"" + FlywaySubsystemNamespace.FLYWAY_1_0.getUriString() + "\" />";
+
+        KernelServices services = super.createKernelServicesBuilder(createAdditionalInitialization())
+                .setSubsystemXml(xml)
+                .build();
+        assertTrue("Subsystem should boot", services.isSuccessfulBoot());
+
+        // Set an expression value on the boolean attribute via write-attribute, mirroring
+        // the production CLI flow: /subsystem=flyway:write-attribute(name=enabled, value=expression "...")
+        ModelNode writeOp = new ModelNode();
+        writeOp.get("operation").set("write-attribute");
+        writeOp.get("address").add("subsystem", "flyway");
+        writeOp.get("name").set("enabled");
+        writeOp.get("value").set(new org.jboss.dmr.ValueExpression("${env.FLYWAY_ENABLED:true}"));
+        services.executeForResult(writeOp);
+
+        String persisted = services.getPersistedSubsystemXml();
+        assertNotNull("Persisted XML should not be null", persisted);
+        assertTrue("Persisted XML should contain the original expression, not its evaluated form. Got: " + persisted,
+                persisted.contains("${env.FLYWAY_ENABLED:true}"));
+    }
+
+    /**
      * Tests invalid configurations that should fail.
      */
     @Test
