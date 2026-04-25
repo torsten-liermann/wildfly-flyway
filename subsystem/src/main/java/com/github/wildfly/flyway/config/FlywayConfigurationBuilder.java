@@ -35,9 +35,8 @@ public class FlywayConfigurationBuilder {
     
     // Configuration state
     private String datasourceJndiName;
-    private DataSource dataSource;
     private final Map<String, String> flywayProperties = new HashMap<>();
-    private boolean isFromSubsystem = false;
+    private boolean isFromSubsystem;
     
     public FlywayConfigurationBuilder(DeploymentPhaseContext phaseContext, 
                                     DeploymentUnit deploymentUnit,
@@ -206,34 +205,7 @@ public class FlywayConfigurationBuilder {
 
         return props;
     }
-    
-    private String getPropertyValue(String key, String defaultValue) {
-        // Check the merged flywayProperties which includes both subsystem and deployment props
-        String normalizedKey = "spring.flyway." + key;
-        String value = flywayProperties.get(normalizedKey);
-        FlywayLogger.debugf("getPropertyValue(%s): checking merged properties, found: %s", key, value);
-        if (value != null) {
-            return value;
-        }
-        
-        // Also check direct deployment properties
-        // First try flyway.* namespace (higher priority)
-        value = deploymentProperties.getProperty("flyway." + key);
-        FlywayLogger.debugf("getPropertyValue(%s): checking flyway.%s, found: %s", key, key, value);
-        if (value != null) {
-            return value;
-        }
-        
-        // Then try spring.flyway.* namespace
-        value = deploymentProperties.getProperty("spring.flyway." + key);
-        FlywayLogger.debugf("getPropertyValue(%s): checking spring.flyway.%s, found: %s", key, key, value);
-        if (value != null) {
-            return value;
-        }
-        
-        return defaultValue;
-    }
-    
+
     /**
      * Normalize a deployment property key to the canonical {@code spring.flyway.*} format.
      * Keys already in that format are returned as-is; keys in the {@code flyway.*} namespace
@@ -354,20 +326,6 @@ public class FlywayConfigurationBuilder {
         }
         
         return result;
-    }
-    
-    private String detectVendor(DataSource dataSource) {
-        if (dataSource == null) {
-            return null;
-        }
-        
-        try (Connection connection = dataSource.getConnection()) {
-            String jdbcUrl = connection.getMetaData().getURL();
-            return SpringBootPropertyResolver.detectVendor(jdbcUrl);
-        } catch (SQLException e) {
-            FlywayLogger.warnf("Failed to detect database vendor: %s", e.getMessage());
-            return null;
-        }
     }
     
     private ConfigurationResult createResult() {
