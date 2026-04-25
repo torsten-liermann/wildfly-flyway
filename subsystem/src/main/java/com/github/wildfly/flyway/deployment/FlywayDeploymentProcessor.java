@@ -42,7 +42,16 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
 
         // Load deployment properties from META-INF/flyway.properties
         Properties deploymentProperties = loadFlywayProperties(deploymentUnit);
-        
+
+        // Explicit opt-out: if the deployment sets flyway.enabled=false (or
+        // spring.flyway.enabled=false), skip processing entirely. This avoids
+        // running JNDI validation, datasource lookup and service installation
+        // for deployments that just happen to ship a db/migration directory.
+        if (isExplicitlyDisabled(deploymentProperties)) {
+            FlywayLogger.debug("Flyway explicitly disabled for deployment: " + deploymentUnit.getName());
+            return;
+        }
+
         // Check if migrations exist or Flyway is explicitly enabled
         if (!hasMigrations(deploymentUnit) && !isExplicitlyEnabled(deploymentProperties)) {
             FlywayLogger.debug("No Flyway migrations found and not explicitly enabled for deployment: " + deploymentUnit.getName());
@@ -162,9 +171,22 @@ public class FlywayDeploymentProcessor implements DeploymentUnitProcessor {
         if ("true".equalsIgnoreCase(enabled)) {
             return true;
         }
-        
+
         enabled = properties.getProperty("spring.flyway.enabled");
         return "true".equalsIgnoreCase(enabled);
+    }
+
+    /**
+     * Check if Flyway is explicitly disabled (flyway.enabled=false or
+     * spring.flyway.enabled=false) so we can skip processing early.
+     */
+    private boolean isExplicitlyDisabled(Properties properties) {
+        String enabled = properties.getProperty("flyway.enabled");
+        if (enabled != null && "false".equalsIgnoreCase(enabled.trim())) {
+            return true;
+        }
+        enabled = properties.getProperty("spring.flyway.enabled");
+        return enabled != null && "false".equalsIgnoreCase(enabled.trim());
     }
 
     /**
