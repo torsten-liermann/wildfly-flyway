@@ -92,9 +92,9 @@ public class SubsystemConfigurationTest {
 
     @Test
     public void testMigrationExecutedSuccessfully() throws Exception {
-        // Verify Flyway ran the migration and created expected structures
-
-        Thread.sleep(2000);
+        // Verify Flyway ran the migration and created expected structures.
+        // Migrations run synchronously inside the deployment's MSC start phase,
+        // so by the time @Deployment completes the schema is already in place.
 
         InitialContext ctx = new InitialContext();
         DataSource ds = (DataSource) ctx.lookup("java:jboss/datasources/SubsystemTestDS");
@@ -132,8 +132,6 @@ public class SubsystemConfigurationTest {
         //   The subsystem table "subsystem_cfg_history" must NOT exist
         //
         // This test would fail if subsystem config took priority over deployment props.
-
-        Thread.sleep(2000);
 
         InitialContext ctx = new InitialContext();
         DataSource ds = (DataSource) ctx.lookup("java:jboss/datasources/SubsystemTestDS");

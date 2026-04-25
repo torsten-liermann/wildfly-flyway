@@ -81,10 +81,8 @@ public class EnvironmentVariableConfigurationTest {
     
     @Test
     public void testEnvironmentVariableConfiguration() throws Exception {
-        // Give Flyway time to run migrations
-        Thread.sleep(2000);
-        
-        // Get the datasource and verify migrations ran
+        // Migrations run synchronously inside the deployment's MSC start phase,
+        // so by the time @Deployment completes the schema is already in place.
         InitialContext ctx = new InitialContext();
         DataSource ds = (DataSource) ctx.lookup("java:jboss/datasources/EnvVarTestDS");
         
@@ -119,8 +117,6 @@ public class EnvironmentVariableConfigurationTest {
         // - ${env.FLYWAY_BASELINE_ON_MIGRATE:false} -> false
         // - ${env.FLYWAY_LOCATIONS:classpath:db/migration} -> classpath:db/migration
 
-        Thread.sleep(2000);
-
         InitialContext ctx = new InitialContext();
         DataSource ds = (DataSource) ctx.lookup("java:jboss/datasources/EnvVarTestDS");
 
@@ -154,8 +150,6 @@ public class EnvironmentVariableConfigurationTest {
         // Verify the cloud-native pattern works end-to-end:
         // The deployment used ${env.FLYWAY_DATASOURCE:java:jboss/datasources/EnvVarTestDS}
         // which should have resolved to EnvVarTestDS and the migration data should be there.
-
-        Thread.sleep(2000);
 
         InitialContext ctx = new InitialContext();
         DataSource ds = (DataSource) ctx.lookup("java:jboss/datasources/EnvVarTestDS");

@@ -69,9 +69,6 @@ public class FlywayPropertyPrefixDeploymentTest {
 
     @Test
     public void testFlywayPropertiesWithoutSpringPrefix() throws Exception {
-        // Wait a bit for migrations to complete
-        Thread.sleep(1000);
-        
         // Get the datasource that should have been migrated
         DataSource ds = (DataSource) new InitialContext().lookup("java:jboss/datasources/FlywayPrefixDeploymentTestDS");
         

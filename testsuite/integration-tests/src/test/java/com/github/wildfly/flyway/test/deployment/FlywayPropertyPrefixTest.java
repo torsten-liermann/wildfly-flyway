@@ -68,9 +68,6 @@ public class FlywayPropertyPrefixTest {
 
     @Test
     public void testFlywayPropertiesWithoutSpringPrefix() throws Exception {
-        // Wait a bit for migrations to complete
-        Thread.sleep(1000);
-        
         // Check that the migration was executed
         DataSource ds = (DataSource) new InitialContext().lookup("java:jboss/datasources/FlywayPrefixTestDS");
         
@@ -96,16 +93,11 @@ public class FlywayPropertyPrefixTest {
              PreparedStatement ps = conn.prepareStatement("SELECT * FROM flyway_schema_history");
              ResultSet rs = ps.executeQuery()) {
             
-            // Check if we have any rows
             int rowCount = 0;
             while (rs.next()) {
                 rowCount++;
-                // Log what we find
-                System.out.println("Row " + rowCount + ": installed_rank=" + rs.getInt("installed_rank") + 
-                                 ", version=" + rs.getString("version") + 
-                                 ", description=" + rs.getString("description"));
             }
-            
+
             assertTrue(rowCount > 0, "Should have migration records");
             
             // If baseline-on-migrate was applied, there should be a baseline record with installed_rank = -1
