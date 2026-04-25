@@ -29,7 +29,6 @@ import java.util.function.Supplier;
  */
 public class FlywayMigrationService implements Service {
 
-    private static final int MAX_RETRY_ATTEMPTS = 3;
     private static final int CONNECTION_TIMEOUT_SECONDS = 30;
 
     private final String deploymentName;
@@ -96,9 +95,10 @@ public class FlywayMigrationService implements Service {
             } else {
                 flywayConfig = Flyway.configure();
             }
-            flywayConfig.connectRetries(MAX_RETRY_ATTEMPTS);
 
-            // Apply configuration from ConfigurationResult
+            // Apply configuration from ConfigurationResult.
+            // connectRetries default (3) and any user-provided value are owned by
+            // FlywayConfiguration.applyAdvanced(), so the service must not preset it.
             FlywayConfigurationBuilder.applyToFlyway(flywayConfig, dataSource, deploymentClassLoader, properties);
 
             // Log configured locations

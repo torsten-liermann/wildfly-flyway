@@ -127,7 +127,7 @@ public class FlywayConfiguration {
         DEFAULTS.put(SCRIPT_PLACEHOLDER_PREFIX, "FP__");
         DEFAULTS.put(SCRIPT_PLACEHOLDER_SUFFIX, "__");
         DEFAULTS.put(LOCK_RETRY_COUNT, "50");
-        DEFAULTS.put(CONNECT_RETRIES, "0");
+        DEFAULTS.put(CONNECT_RETRIES, "3");
         DEFAULTS.put(CONNECT_RETRIES_INTERVAL, "120");
         DEFAULTS.put(ORACLE_SQLPLUS, "false");
         DEFAULTS.put(ORACLE_SQLPLUS_WARN, "false");
