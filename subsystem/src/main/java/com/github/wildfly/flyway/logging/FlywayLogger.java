@@ -1,7 +1,5 @@
 package com.github.wildfly.flyway.logging;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.logging.Logger;
 import org.jboss.logging.Logger.Level;
 
@@ -18,10 +16,6 @@ public class FlywayLogger {
     private static final Logger CONFIG_LOGGER = Logger.getLogger("com.github.wildfly.flyway.config");
     private static final Logger SECURITY_LOGGER = Logger.getLogger("com.github.wildfly.flyway.security");
     private static final Logger PERFORMANCE_LOGGER = Logger.getLogger("com.github.wildfly.flyway.performance");
-    
-    // Performance tracking
-    private static final ConcurrentHashMap<String, AtomicLong> operationCounts = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<String, AtomicLong> operationTimes = new ConcurrentHashMap<>();
     
     // Log level checks for performance
     public static boolean isDebugEnabled() {
@@ -101,21 +95,12 @@ public class FlywayLogger {
     
     public static void logSecurity(Level level, String message, Object... args) {
         SECURITY_LOGGER.logf(level, message, args);
-        
-        // Always log security events at WARN or higher
-        if (level.ordinal() <= Level.WARN.ordinal()) {
-            operationCounts.computeIfAbsent("security.events", k -> new AtomicLong()).incrementAndGet();
-        }
     }
-    
+
     public static void logPerformance(String operation, long durationMs) {
         if (PERFORMANCE_LOGGER.isDebugEnabled()) {
             PERFORMANCE_LOGGER.debugf("Operation [%s] completed in %d ms", operation, durationMs);
         }
-        
-        // Track performance metrics
-        operationCounts.computeIfAbsent(operation, k -> new AtomicLong()).incrementAndGet();
-        operationTimes.computeIfAbsent(operation, k -> new AtomicLong()).addAndGet(durationMs);
     }
     
     // Performance tracking methods
@@ -169,27 +154,4 @@ public class FlywayLogger {
         }
     }
     
-    // Statistics and metrics
-    public static void logStatistics() {
-        if (!PERFORMANCE_LOGGER.isInfoEnabled()) {
-            return;
-        }
-        
-        PERFORMANCE_LOGGER.info("===== Flyway Performance Statistics =====");
-        operationCounts.forEach((operation, count) -> {
-            AtomicLong totalTime = operationTimes.get(operation);
-            if (totalTime != null && count.get() > 0) {
-                long avgTime = totalTime.get() / count.get();
-                PERFORMANCE_LOGGER.infof("  %s: %d operations, avg time: %d ms", 
-                    operation, count.get(), avgTime);
-            } else {
-                PERFORMANCE_LOGGER.infof("  %s: %d operations", operation, count.get());
-            }
-        });
-    }
-    
-    public static void clearStatistics() {
-        operationCounts.clear();
-        operationTimes.clear();
-    }
 }
